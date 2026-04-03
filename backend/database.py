@@ -40,7 +40,7 @@ async def disconnect_db():
 async def create_indexes():
     """Créer les index MongoDB pour les performances."""
     global db
-    if not db:
+    if db is None:
         return
 
     # Beneficiaires
