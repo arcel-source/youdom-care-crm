@@ -1,237 +1,448 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Plus, Edit2, Trash2, Phone, Mail, Award } from 'lucide-react';
-import Badge from '../components/common/Badge';
-import { StatusBadge } from '../components/common/Badge';
+import React, { useState, useMemo } from 'react';
+import {
+  Users,
+  Plus,
+  Search,
+  LayoutGrid,
+  List,
+  Phone,
+  Mail,
+  MapPin,
+  Star,
+  Calendar,
+  Clock,
+  ChevronDown,
+  Edit2,
+  X,
+  Briefcase,
+  Award,
+} from 'lucide-react';
+import StatCard from '../components/common/StatCard';
 import Modal from '../components/common/Modal';
-import ConfirmDialog from '../components/common/ConfirmDialog';
-import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
-import Select from '../components/ui/Select';
+import Badge from '../components/common/Badge';
 import EmptyState from '../components/common/EmptyState';
-import { PageLoader } from '../components/common/LoadingSpinner';
-import { formatPhoneNumber, filterBySearch } from '../utils/helpers';
 
+/* ─── Mock data ────────────────────────────────────────────────────────── */
 const MOCK_INTERVENANTS = [
   {
-    id: 1, nom: 'Martin', prenom: 'Claire', telephone: '0612345670', email: 'claire.martin@youdomcare.fr',
-    statut: 'actif', competences: ['Aide toilette', 'Aide ménagère', 'Aide repas'],
-    disponibilites: 'Lun-Ven 8h-18h', contrat: 'CDI', heuresMois: 151,
+    id: 1, prenom: 'Sophie', nom: 'Martin', email: 'sophie.martin@youdom.fr',
+    telephone: '06 12 34 56 78', adresse: 'Lyon 3e', disponibilite: 'Disponible',
+    contrat: 'CDI', heuresSemaine: 35, note: 4.9, interventions: 142,
+    competences: ['Aide à domicile', 'Toilette', 'Accompagnement'],
+    specialites: ['Alzheimer', 'Personnes âgées'], dateEntree: '2020-03-15',
+    avatar: null,
   },
   {
-    id: 2, nom: 'Blanc', prenom: 'Sophie', telephone: '0698765434', email: 'sophie.blanc@youdomcare.fr',
-    statut: 'actif', competences: ['Garde nuit', 'Aide toilette'],
-    disponibilites: 'Lun-Sam 20h-8h', contrat: 'CDI', heuresMois: 120,
+    id: 2, prenom: 'Fatou', nom: 'Diallo', email: 'fatou.diallo@youdom.fr',
+    telephone: '06 23 45 67 89', adresse: 'Lyon 7e', disponibilite: 'Disponible',
+    contrat: 'CDI', heuresSemaine: 28, note: 4.7, interventions: 98,
+    competences: ['Aide ménagère', 'Courses', 'Repas'],
+    specialites: ['Mobilité réduite'], dateEntree: '2021-06-01',
+    avatar: null,
   },
   {
-    id: 3, nom: 'Leroy', prenom: 'Marc', telephone: '0645678914', email: 'marc.leroy@youdomcare.fr',
-    statut: 'actif', competences: ['Aide ménagère', 'Portage repas', 'Sortie accompagnée'],
-    disponibilites: 'Lun-Ven 9h-17h', contrat: 'CDD', heuresMois: 80,
+    id: 3, prenom: 'Claire', nom: 'Bernard', email: 'claire.bernard@youdom.fr',
+    telephone: '06 34 56 78 90', adresse: 'Villeurbanne', disponibilite: 'En congé',
+    contrat: 'CDD', heuresSemaine: 24, note: 4.8, interventions: 76,
+    competences: ['Aide à domicile', 'Soins infirmiers'],
+    specialites: ['Post-hospitalisation'], dateEntree: '2022-01-10',
+    avatar: null,
   },
   {
-    id: 4, nom: 'Dubois', prenom: 'Anne', telephone: '0678901235', email: null,
-    statut: 'inactif', competences: ['Aide toilette'],
-    disponibilites: 'Non définie', contrat: 'Intérim', heuresMois: 0,
+    id: 4, prenom: 'Marc', nom: 'Aubert', email: 'marc.aubert@youdom.fr',
+    telephone: '06 45 67 89 01', adresse: 'Lyon 6e', disponibilite: 'Disponible',
+    contrat: 'CDI', heuresSemaine: 35, note: 4.6, interventions: 210,
+    competences: ['Garde de nuit', 'Aide à domicile', 'Accompagnement'],
+    specialites: ['Alzheimer', 'Parkinson'], dateEntree: '2019-09-02',
+    avatar: null,
+  },
+  {
+    id: 5, prenom: 'Karine', nom: 'Lefebvre', email: 'karine.lefebvre@youdom.fr',
+    telephone: '06 56 78 90 12', adresse: 'Bron', disponibilite: 'Occupée',
+    contrat: 'CDI', heuresSemaine: 30, note: 4.5, interventions: 133,
+    competences: ['Aide ménagère', 'Portage de repas'],
+    specialites: ['Personnes âgées'], dateEntree: '2021-02-20',
+    avatar: null,
+  },
+  {
+    id: 6, prenom: 'Nadia', nom: 'Benali', email: 'nadia.benali@youdom.fr',
+    telephone: '06 67 89 01 23', adresse: 'Vénissieux', disponibilite: 'Disponible',
+    contrat: 'Temps partiel', heuresSemaine: 20, note: 4.7, interventions: 55,
+    competences: ['Aide à domicile', 'Repas'],
+    specialites: ['Handicap moteur'], dateEntree: '2023-04-05',
+    avatar: null,
+  },
+  {
+    id: 7, prenom: 'Thomas', nom: 'Girard', email: 'thomas.girard@youdom.fr',
+    telephone: '06 78 90 12 34', adresse: 'Lyon 9e', disponibilite: 'En congé',
+    contrat: 'CDI', heuresSemaine: 35, note: 4.4, interventions: 187,
+    competences: ['Aide à domicile', 'Jardinage', 'Bricolage'],
+    specialites: ['Personnes âgées', 'Isolement social'], dateEntree: '2018-11-12',
+    avatar: null,
+  },
+  {
+    id: 8, prenom: 'Amina', nom: 'Traoré', email: 'amina.traore@youdom.fr',
+    telephone: '06 89 01 23 45', adresse: 'Caluire', disponibilite: 'Disponible',
+    contrat: 'CDI', heuresSemaine: 35, note: 5.0, interventions: 62,
+    competences: ['Aide à domicile', 'Toilette', 'Accompagnement médical'],
+    specialites: ['Alzheimer', 'Soins palliatifs'], dateEntree: '2023-09-01',
+    avatar: null,
   },
 ];
 
-const COMPETENCES_OPTIONS = [
-  'Aide toilette', 'Aide ménagère', 'Aide repas', 'Garde nuit',
-  'Sortie accompagnée', 'Portage repas', 'Aide administrative', 'Soins infirmiers',
+const DISPO_CONFIG = {
+  'Disponible': { variant: 'success', dot: true, pulse: true },
+  'Occupée':    { variant: 'warning', dot: true, pulse: false },
+  'En congé':   { variant: 'neutral', dot: true, pulse: false },
+};
+
+const COMPETENCE_COLORS = [
+  'bg-teal-100 text-teal-700',
+  'bg-emerald-100 text-emerald-700',
+  'bg-sky-100 text-sky-700',
+  'bg-violet-100 text-violet-700',
+  'bg-amber-100 text-amber-700',
 ];
 
-const STATUT_OPTIONS = [
-  { value: 'actif', label: 'Actif' }, { value: 'inactif', label: 'Inactif' }, { value: 'suspendu', label: 'Suspendu' },
+const getInitials = (p, n) => `${p[0]}${n[0]}`.toUpperCase();
+
+const AVATAR_COLORS = [
+  'from-teal-500 to-teal-700',
+  'from-emerald-500 to-emerald-700',
+  'from-sky-500 to-sky-700',
+  'from-amber-500 to-amber-700',
+  'from-rose-500 to-rose-600',
+  'from-violet-500 to-violet-700',
 ];
 
-const CONTRAT_OPTIONS = [
-  { value: 'CDI', label: 'CDI' }, { value: 'CDD', label: 'CDD' }, { value: 'Intérim', label: 'Intérim' },
-];
+/* ─── Sub-components ───────────────────────────────────────────────────── */
+const Avatar = ({ prenom, nom, idx, size = 'md' }) => {
+  const color = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+  const sizeClass = size === 'lg' ? 'w-16 h-16 text-xl' : size === 'sm' ? 'w-8 h-8 text-xs' : 'w-12 h-12 text-sm';
+  return (
+    <div className={`${sizeClass} rounded-2xl bg-gradient-to-br ${color} flex items-center justify-center font-bold text-white shadow-sm flex-shrink-0`}>
+      {getInitials(prenom, nom)}
+    </div>
+  );
+};
 
-const EMPTY_FORM = { prenom: '', nom: '', telephone: '', email: '', statut: 'actif', competences: [], disponibilites: '', contrat: 'CDI' };
+const StarRating = ({ note }) => (
+  <div className="flex items-center gap-1">
+    <Star size={12} className="text-amber-400 fill-amber-400" />
+    <span className="text-xs font-semibold text-slate-700">{note.toFixed(1)}</span>
+  </div>
+);
 
-export default function IntervenantsPage() {
-  const [intervenants, setIntervenants] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [selectedId, setSelectedId] = useState(null);
-  const [formData, setFormData] = useState(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
-  const [showDetail, setShowDetail] = useState(null);
+/* ─── Card view ────────────────────────────────────────────────────────── */
+const IntervCard = ({ intervenant, idx, onView }) => {
+  const dispoCfg = DISPO_CONFIG[intervenant.disponibilite] || DISPO_CONFIG['Disponible'];
+  return (
+    <div
+      className="bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group animate-slideUp"
+      style={{ animationDelay: `${idx * 50}ms` }}
+      onClick={() => onView(intervenant)}
+    >
+      <div className="p-5">
+        {/* Top row */}
+        <div className="flex items-start justify-between mb-4">
+          <Avatar prenom={intervenant.prenom} nom={intervenant.nom} idx={idx} />
+          <Badge variant={dispoCfg.variant} dot={dispoCfg.dot} pulse={dispoCfg.pulse} size="xs">
+            {intervenant.disponibilite}
+          </Badge>
+        </div>
 
-  useEffect(() => {
-    setTimeout(() => { setIntervenants(MOCK_INTERVENANTS); setLoading(false); }, 400);
+        {/* Name & rating */}
+        <div className="mb-3">
+          <h3 className="font-semibold text-slate-800 group-hover:text-teal-700 transition-colors">
+            {intervenant.prenom} {intervenant.nom}
+          </h3>
+          <div className="flex items-center gap-2 mt-1">
+            <StarRating note={intervenant.note} />
+            <span className="text-xs text-slate-400">·</span>
+            <span className="text-xs text-slate-500">{intervenant.interventions} interventions</span>
+          </div>
+        </div>
+
+        {/* Infos */}
+        <div className="space-y-1.5 mb-4">
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <MapPin size={12} className="text-slate-400 flex-shrink-0" />
+            <span>{intervenant.adresse}</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <Clock size={12} className="text-slate-400 flex-shrink-0" />
+            <span>{intervenant.heuresSemaine}h/semaine · {intervenant.contrat}</span>
+          </div>
+        </div>
+
+        {/* Compétences */}
+        <div className="flex flex-wrap gap-1.5">
+          {intervenant.competences.slice(0, 3).map((comp, i) => (
+            <span key={comp} className={`text-xs px-2 py-0.5 rounded-full font-medium ${COMPETENCE_COLORS[i % COMPETENCE_COLORS.length]}`}>
+              {comp}
+            </span>
+          ))}
+          {intervenant.competences.length > 3 && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 font-medium">
+              +{intervenant.competences.length - 3}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─── List row ─────────────────────────────────────────────────────────── */
+const IntervRow = ({ intervenant, idx, onView }) => {
+  const dispoCfg = DISPO_CONFIG[intervenant.disponibilite] || DISPO_CONFIG['Disponible'];
+  return (
+    <tr
+      className="hover:bg-teal-50/30 transition-colors cursor-pointer group animate-fadeIn"
+      style={{ animationDelay: `${idx * 30}ms` }}
+      onClick={() => onView(intervenant)}
+    >
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-3">
+          <Avatar prenom={intervenant.prenom} nom={intervenant.nom} idx={idx} size="sm" />
+          <div>
+            <p className="font-medium text-slate-700 text-sm group-hover:text-teal-700 transition-colors">
+              {intervenant.prenom} {intervenant.nom}
+            </p>
+            <p className="text-xs text-slate-400">{intervenant.adresse}</p>
+          </div>
+        </div>
+      </td>
+      <td className="px-4 py-3 text-sm text-slate-500">{intervenant.contrat}</td>
+      <td className="px-4 py-3 text-sm text-slate-500">{intervenant.heuresSemaine}h/sem</td>
+      <td className="px-4 py-3">
+        <div className="flex flex-wrap gap-1">
+          {intervenant.competences.slice(0, 2).map((c, i) => (
+            <span key={c} className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${COMPETENCE_COLORS[i]}`}>{c}</span>
+          ))}
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-1.5">
+          <StarRating note={intervenant.note} />
+          <span className="text-xs text-slate-400">({intervenant.interventions})</span>
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <Badge variant={dispoCfg.variant} dot={dispoCfg.dot} pulse={dispoCfg.pulse} size="xs">
+          {intervenant.disponibilite}
+        </Badge>
+      </td>
+    </tr>
+  );
+};
+
+/* ─── Main component ───────────────────────────────────────────────────── */
+const IntervenantsPage = () => {
+  const [view, setView]         = useState('grid');
+  const [search, setSearch]     = useState('');
+  const [filterDispo, setFilterDispo] = useState('Tous');
+  const [selected, setSelected] = useState(null);
+
+  const filtered = useMemo(() => {
+    return MOCK_INTERVENANTS.filter(i => {
+      const matchSearch = search === '' ||
+        `${i.prenom} ${i.nom}`.toLowerCase().includes(search.toLowerCase()) ||
+        i.competences.some(c => c.toLowerCase().includes(search.toLowerCase()));
+      const matchDispo = filterDispo === 'Tous' || i.disponibilite === filterDispo;
+      return matchSearch && matchDispo;
+    });
+  }, [search, filterDispo]);
+
+  const stats = useMemo(() => {
+    const total    = MOCK_INTERVENANTS.length;
+    const actifs   = MOCK_INTERVENANTS.filter(i => i.disponibilite === 'Disponible').length;
+    const occupes  = MOCK_INTERVENANTS.filter(i => i.disponibilite === 'Occupée').length;
+    const conges   = MOCK_INTERVENANTS.filter(i => i.disponibilite === 'En congé').length;
+    return { total, actifs, occupes, conges };
   }, []);
 
-  const filtered = filterBySearch(intervenants, search, ['nom', 'prenom', 'email', 'telephone']);
-
-  const toggleCompetence = (comp) => {
-    setFormData(p => ({
-      ...p,
-      competences: p.competences.includes(comp)
-        ? p.competences.filter(c => c !== comp)
-        : [...p.competences, comp],
-    }));
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    await new Promise(r => setTimeout(r, 500));
-    if (formData.id) {
-      setIntervenants(prev => prev.map(i => i.id === formData.id ? formData : i));
-    } else {
-      const newId = Math.max(...intervenants.map(i => i.id), 0) + 1;
-      setIntervenants(prev => [{ ...formData, id: newId, heuresMois: 0 }, ...prev]);
-    }
-    setSaving(false);
-    setShowModal(false);
-  };
-
-  const handleDelete = async () => {
-    await new Promise(r => setTimeout(r, 400));
-    setIntervenants(prev => prev.filter(i => i.id !== selectedId));
-    setShowConfirm(false);
-  };
-
-  if (loading) return <PageLoader text="Chargement des intervenants..." />;
-
-  const detail = showDetail ? intervenants.find(i => i.id === showDetail) : null;
-
   return (
-    <div className="space-y-4">
+    <div className="p-6 space-y-6 animate-fadeIn">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Intervenants</h1>
-          <p className="text-gray-500 text-sm">{filtered.length} intervenant{filtered.length > 1 ? 's' : ''}</p>
+          <h1 className="text-2xl font-bold text-slate-800">Intervenants</h1>
+          <p className="text-sm text-slate-500 mt-0.5">{MOCK_INTERVENANTS.length} intervenants · équipe Youdom Care</p>
         </div>
-        <Button icon={Plus} onClick={() => { setFormData(EMPTY_FORM); setShowModal(true); }}>Nouvel intervenant</Button>
+        <button className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-teal-700 rounded-xl hover:from-teal-700 hover:to-teal-800 shadow-sm hover:shadow-md transition-all active:scale-95">
+          <Plus size={16} /> Ajouter un intervenant
+        </button>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="relative max-w-sm">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input type="text" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Total intervenants" value={stats.total} icon={Users} color="teal" />
+        <StatCard title="Disponibles" value={stats.actifs} icon={Users} color="emerald" trend={`${Math.round(stats.actifs/stats.total*100)}%`} trendUp={true} />
+        <StatCard title="Occupés" value={stats.occupes} icon={Briefcase} color="amber" />
+        <StatCard title="En congé" value={stats.conges} icon={Calendar} color="rose" />
+      </div>
+
+      {/* Filters + view toggle */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher par nom ou compétence…"
+            className="w-full pl-9 pr-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
+          />
+        </div>
+
+        <div className="relative">
+          <select
+            value={filterDispo}
+            onChange={e => setFilterDispo(e.target.value)}
+            className="appearance-none pl-4 pr-9 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 cursor-pointer"
+          >
+            {['Tous', 'Disponible', 'Occupée', 'En congé'].map(d => <option key={d}>{d}</option>)}
+          </select>
+          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        </div>
+
+        {/* View toggle */}
+        <div className="flex items-center bg-white border border-slate-200 rounded-xl overflow-hidden">
+          <button
+            onClick={() => setView('grid')}
+            className={`p-2.5 transition-colors ${view === 'grid' ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            <LayoutGrid size={16} />
+          </button>
+          <button
+            onClick={() => setView('list')}
+            className={`p-2.5 transition-colors ${view === 'list' ? 'bg-teal-600 text-white' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            <List size={16} />
+          </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {filtered.length === 0 ? (
-          <EmptyState icon="UserCheck" title="Aucun intervenant trouvé" />
-        ) : (
+      {/* Content */}
+      {filtered.length === 0 ? (
+        <EmptyState icon="users" title="Aucun intervenant trouvé" description="Modifiez vos filtres de recherche." />
+      ) : view === 'grid' ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filtered.map((interv, idx) => (
+            <IntervCard key={interv.id} intervenant={interv} idx={idx} onView={setSelected} />
+          ))}
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden animate-slideUp">
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Intervenant</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Compétences</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell">Disponibilités</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden xl:table-cell">H/mois</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Statut</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-600">Actions</th>
+                <tr className="border-b border-slate-100 bg-slate-50">
+                  {['Intervenant', 'Contrat', 'Heures', 'Compétences', 'Note', 'Disponibilité'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filtered.map(interv => (
-                  <tr key={interv.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <span className="text-green-600 text-xs font-semibold">{interv.prenom[0]}{interv.nom[0]}</span>
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-800">{interv.prenom} {interv.nom}</p>
-                          <div className="flex items-center gap-2 text-xs text-gray-400">
-                            {interv.telephone && <span className="flex items-center gap-1"><Phone size={10} />{formatPhoneNumber(interv.telephone)}</span>}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell">
-                      <div className="flex flex-wrap gap-1 max-w-xs">
-                        {interv.competences.slice(0, 2).map(c => (
-                          <span key={c} className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">{c}</span>
-                        ))}
-                        {interv.competences.length > 2 && (
-                          <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">+{interv.competences.length - 2}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 hidden lg:table-cell text-gray-600 text-xs">{interv.disponibilites}</td>
-                    <td className="px-4 py-3 hidden xl:table-cell">
-                      <span className="font-semibold text-gray-700">{interv.heuresMois}h</span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={interv.statut} label={interv.statut === 'actif' ? 'Actif' : interv.statut === 'inactif' ? 'Inactif' : 'Suspendu'} />
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setShowDetail(interv.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors" title="Détail"><Award size={15} /></button>
-                        <button onClick={() => { setFormData({...interv}); setShowModal(true); }} className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"><Edit2 size={15} /></button>
-                        <button onClick={() => { setSelectedId(interv.id); setShowConfirm(true); }} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"><Trash2 size={15} /></button>
-                      </div>
-                    </td>
-                  </tr>
+              <tbody className="divide-y divide-slate-50">
+                {filtered.map((interv, idx) => (
+                  <IntervRow key={interv.id} intervenant={interv} idx={idx} onView={setSelected} />
                 ))}
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Detail modal */}
-      <Modal isOpen={!!detail} onClose={() => setShowDetail(null)} title={detail ? `${detail.prenom} ${detail.nom}` : ''} size="md">
-        {detail && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div><p className="text-xs text-gray-400 mb-1">Contrat</p><p className="font-medium">{detail.contrat}</p></div>
-              <div><p className="text-xs text-gray-400 mb-1">Heures/mois</p><p className="font-medium">{detail.heuresMois}h</p></div>
-              <div className="col-span-2"><p className="text-xs text-gray-400 mb-1">Disponibilités</p><p className="font-medium">{detail.disponibilites}</p></div>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400 mb-2">Compétences</p>
-              <div className="flex flex-wrap gap-2">
-                {detail.competences.map(c => <Badge key={c} variant="primary">{c}</Badge>)}
+      {/* Profile Modal */}
+      {selected && (
+        <Modal
+          isOpen={!!selected}
+          onClose={() => setSelected(null)}
+          title="Profil intervenant"
+          size="lg"
+          footer={
+            <>
+              <button onClick={() => setSelected(null)} className="px-4 py-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
+                Fermer
+              </button>
+              <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-teal-700 rounded-xl hover:from-teal-700 hover:to-teal-800 transition-all">
+                <Edit2 size={14} /> Modifier
+              </button>
+            </>
+          }
+        >
+          <div className="space-y-5">
+            {/* Header profil */}
+            <div className="flex items-start gap-4 p-4 bg-gradient-to-r from-teal-50 to-emerald-50 rounded-2xl border border-teal-100">
+              <Avatar prenom={selected.prenom} nom={selected.nom} idx={selected.id - 1} size="lg" />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-xl font-bold text-slate-800">{selected.prenom} {selected.nom}</h2>
+                  <Badge variant={DISPO_CONFIG[selected.disponibilite]?.variant} dot pulse={selected.disponibilite === 'Disponible'} size="sm">
+                    {selected.disponibilite}
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                  <StarRating note={selected.note} />
+                  <span className="text-xs text-slate-400">·</span>
+                  <span className="text-sm text-slate-500">{selected.interventions} interventions réalisées</span>
+                </div>
+                <p className="text-sm text-slate-500 mt-1">{selected.contrat} · {selected.heuresSemaine}h/semaine</p>
               </div>
             </div>
-            <div>
-              <p className="text-xs text-gray-400 mb-1">Contact</p>
-              {detail.email && <p className="text-sm text-gray-700 flex items-center gap-1"><Mail size={13} />{detail.email}</p>}
-              {detail.telephone && <p className="text-sm text-gray-700 flex items-center gap-1"><Phone size={13} />{formatPhoneNumber(detail.telephone)}</p>}
-            </div>
-          </div>
-        )}
-      </Modal>
 
-      {/* Form modal */}
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={formData.id ? 'Modifier l\'intervenant' : 'Nouvel intervenant'} size="lg"
-        footer={<><Button variant="ghost" onClick={() => setShowModal(false)}>Annuler</Button><Button loading={saving} onClick={handleSave}>{formData.id ? 'Enregistrer' : 'Créer'}</Button></>}>
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <Input label="Prénom" value={formData.prenom} onChange={e => setFormData(p => ({...p, prenom: e.target.value}))} required />
-            <Input label="Nom" value={formData.nom} onChange={e => setFormData(p => ({...p, nom: e.target.value}))} required />
-            <Input label="Téléphone" type="tel" value={formData.telephone} onChange={e => setFormData(p => ({...p, telephone: e.target.value}))} />
-            <Input label="Email" type="email" value={formData.email || ''} onChange={e => setFormData(p => ({...p, email: e.target.value}))} />
-            <Select label="Statut" value={formData.statut} onChange={e => setFormData(p => ({...p, statut: e.target.value}))} options={STATUT_OPTIONS} />
-            <Select label="Contrat" value={formData.contrat} onChange={e => setFormData(p => ({...p, contrat: e.target.value}))} options={CONTRAT_OPTIONS} />
-            <Input label="Disponibilités" value={formData.disponibilites} onChange={e => setFormData(p => ({...p, disponibilites: e.target.value}))} containerClassName="sm:col-span-2" placeholder="Ex: Lun-Ven 8h-18h" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-gray-700 mb-2">Compétences</p>
-            <div className="flex flex-wrap gap-2">
-              {COMPETENCES_OPTIONS.map(c => (
-                <button key={c} type="button" onClick={() => toggleCompetence(c)}
-                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${formData.competences?.includes(c) ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-gray-300 text-gray-600 hover:border-indigo-300'}`}>
-                  {c}
-                </button>
+            {/* Contact */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[
+                { icon: Phone, label: selected.telephone },
+                { icon: Mail, label: selected.email },
+                { icon: MapPin, label: selected.adresse },
+              ].map(({ icon: Icon, label }) => (
+                <div key={label} className="flex items-center gap-2 p-3 bg-slate-50 rounded-xl">
+                  <Icon size={14} className="text-teal-500 flex-shrink-0" />
+                  <span className="text-xs text-slate-600 truncate">{label}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Compétences & Spécialités */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Compétences</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {selected.competences.map((c, i) => (
+                    <span key={c} className={`text-xs px-2.5 py-1 rounded-full font-medium ${COMPETENCE_COLORS[i % COMPETENCE_COLORS.length]}`}>{c}</span>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h4 className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Spécialités</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {selected.specialites.map((s, i) => (
+                    <Badge key={s} variant="teal" size="sm">{s}</Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: 'Interventions', value: selected.interventions, color: 'text-teal-600' },
+                { label: 'Note moyenne', value: `${selected.note}/5`, color: 'text-amber-600' },
+                { label: 'Ancienneté', value: `${new Date().getFullYear() - new Date(selected.dateEntree).getFullYear()} ans`, color: 'text-emerald-600' },
+              ].map(({ label, value, color }) => (
+                <div key={label} className="text-center p-3 bg-slate-50 rounded-xl">
+                  <p className={`text-xl font-bold ${color}`}>{value}</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{label}</p>
+                </div>
               ))}
             </div>
           </div>
-        </div>
-      </Modal>
-
-      <ConfirmDialog isOpen={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={handleDelete} title="Supprimer l'intervenant" message="Cette action supprimera définitivement l'intervenant et ses données." />
+        </Modal>
+      )}
     </div>
   );
-}
+};
+
+export default IntervenantsPage;

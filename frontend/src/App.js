@@ -20,6 +20,7 @@ import NotificationsPage from './pages/NotificationsPage';
 import PrescripteursPage from './pages/PrescripteursPage';
 import ServicesPage from './pages/ServicesPage';
 import SettingsPage from './pages/SettingsPage';
+import ComptabilitePage from './pages/ComptabilitePage';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated, isLoading } = useAuth();
@@ -104,6 +105,7 @@ function App() {
           <Route path="prescripteurs" element={<PrescripteursPage />} />
           <Route path="services" element={<ServicesPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="comptabilite" element={<ComptabilitePage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/dashboard" replace />} />

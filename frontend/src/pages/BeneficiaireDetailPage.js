@@ -1,268 +1,364 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Phone, Mail, MapPin, User, Calendar, FileText, AlertTriangle, Edit2 } from 'lucide-react';
+import {
+  ArrowLeft,
+  Phone,
+  Mail,
+  MapPin,
+  Calendar,
+  Clock,
+  FileText,
+  Users,
+  Edit2,
+  Download,
+  CheckCircle,
+  AlertCircle,
+  XCircle,
+  Heart,
+  Activity,
+  User,
+  Home,
+  Paperclip,
+  Star,
+} from 'lucide-react';
 import Badge from '../components/common/Badge';
-import { StatusBadge } from '../components/common/Badge';
-import { PageLoader } from '../components/common/LoadingSpinner';
-import Button from '../components/ui/Button';
-import { formatDate, calculateAge, formatPhoneNumber, formatMoney } from '../utils/helpers';
-import { BENEFICIAIRE_STATUT_LABELS, TYPES_PUBLIC_LABELS, NIVEAUX_DEPENDANCE_LABELS, TYPES_AIDES_LABELS } from '../utils/constants';
 
-const MOCK_BENEFICIAIRE = {
-  id: 1,
-  nom: 'Dupont', prenom: 'Marie', dateNaissance: '1942-03-15',
-  telephone: '0612345678', email: 'marie.dupont@email.fr',
-  adresse: '12 rue des Lilas, 75012 Paris',
-  typePublic: 'personnes_agees', niveauDependance: 'GIR3', statut: 'actif',
-  intervenant: 'Claire Martin',
-  aides: [
-    { type: 'APA', montantMensuel: 850, dateDebut: '2023-01-01', dateFin: '2026-04-15', financeur: 'Conseil Départemental' },
-  ],
-  notes: 'Bénéficiaire très agréable. Préférence pour les interventions le matin avant 10h.',
+/* ─── Mock data ────────────────────────────────────────────────────────── */
+const MOCK_BENEFICIAIRES = {
+  1: {
+    id: 1, prenom: 'Marie', nom: 'Dupont', age: 82, dateNaissance: '1942-03-14',
+    adresse: '12 rue des Lilas, Lyon 3e', telephone: '04 72 11 22 33',
+    email: 'marie.dupont@email.fr', statut: 'Actif', niveau: 'GIR 2',
+    pathologies: ['Alzheimer léger', 'Hypertension'],
+    intervenante: 'Sophie Martin', heuresHebdo: 21,
+    dateDebut: '2021-04-12', plan: 'APA',
+    urgenceNom: 'Pierre Dupont', urgenceLien: 'Fils', urgenceTel: '06 80 90 10 20',
+    noteCoord: 'Bénéficiaire coopérative. Préfère les interventions le matin. Allergie au lactose.',
+    famille: [
+      { nom: 'Pierre Dupont', lien: 'Fils', telephone: '06 80 90 10 20', email: 'pierre.dupont@email.fr', contact_urgence: true },
+      { nom: 'Isabelle Moreau', lien: 'Fille', telephone: '06 55 44 33 22', email: 'isa.moreau@email.fr', contact_urgence: false },
+    ],
+    interventions: [
+      { id: 101, date: '2024-03-28', heure: '09:00', duree: '3h', type: 'Aide à domicile', intervenant: 'Sophie Martin', statut: 'Réalisée', note: 'RAS, bonne humeur.' },
+      { id: 102, date: '2024-03-26', heure: '09:00', duree: '3h', type: 'Aide à domicile', intervenant: 'Sophie Martin', statut: 'Réalisée', note: 'Légère agitation en fin de séance.' },
+      { id: 103, date: '2024-03-25', heure: '14:00', duree: '1h30', type: 'Accompagnement médical', intervenant: 'Karine Lefebvre', statut: 'Réalisée', note: 'Consultation Dr Favier, tout va bien.' },
+      { id: 104, date: '2024-03-22', heure: '09:00', duree: '3h', type: 'Aide à domicile', intervenant: 'Sophie Martin', statut: 'Annulée', note: 'Bénéficiaire chez sa fille.' },
+      { id: 105, date: '2024-03-20', heure: '09:00', duree: '3h', type: 'Aide à domicile', intervenant: 'Sophie Martin', statut: 'Réalisée', note: 'Ménage + repas réalisés.' },
+      { id: 106, date: '2024-04-02', heure: '09:00', duree: '3h', type: 'Aide à domicile', intervenant: 'Sophie Martin', statut: 'Planifiée', note: '' },
+    ],
+    documents: [
+      { id: 1, nom: 'Plan d\'aide APA 2024.pdf', type: 'Plan aide', taille: '245 Ko', date: '2024-01-10', icone: 'pdf' },
+      { id: 2, nom: 'Ordonnance Dr Favier mars 2024.pdf', type: 'Médical', taille: '128 Ko', date: '2024-03-25', icone: 'pdf' },
+      { id: 3, nom: 'Contrat de prestation.pdf', type: 'Contrat', taille: '380 Ko', date: '2021-04-12', icone: 'pdf' },
+      { id: 4, nom: 'Fiche de liaison sanitaire.docx', type: 'Sanitaire', taille: '92 Ko', date: '2024-02-01', icone: 'doc' },
+      { id: 5, nom: 'Attestation CAF 2024.pdf', type: 'Administratif', taille: '156 Ko', date: '2024-01-15', icone: 'pdf' },
+    ],
+  },
 };
 
-const MOCK_INTERVENTIONS = [
-  { id: 1, date: '2026-04-01', heureDebut: '09:00', heureFin: '11:00', service: 'Aide ménagère', intervenant: 'Claire Martin', statut: 'terminee' },
-  { id: 2, date: '2026-04-03', heureDebut: '08:30', heureFin: '09:30', service: 'Aide toilette', intervenant: 'Claire Martin', statut: 'terminee' },
-  { id: 3, date: '2026-04-05', heureDebut: '09:00', heureFin: '11:00', service: 'Aide ménagère', intervenant: 'Claire Martin', statut: 'planifiee' },
-  { id: 4, date: '2026-04-08', heureDebut: '08:30', heureFin: '09:30', service: 'Aide toilette', intervenant: 'Claire Martin', statut: 'planifiee' },
+/* ─── Configs ──────────────────────────────────────────────────────────── */
+const INTERV_STATUT = {
+  'Réalisée':  { variant: 'success', icon: CheckCircle },
+  'Planifiée': { variant: 'teal',    icon: Clock },
+  'Annulée':   { variant: 'neutral', icon: XCircle },
+  'Incident':  { variant: 'danger',  icon: AlertCircle },
+};
+
+const DOC_COLORS = {
+  pdf: 'bg-rose-100 text-rose-600',
+  doc: 'bg-sky-100 text-sky-600',
+};
+
+const TABS = [
+  { id: 'infos',        label: 'Informations', icon: User },
+  { id: 'interventions',label: 'Interventions', icon: Activity },
+  { id: 'documents',    label: 'Documents',    icon: FileText },
+  { id: 'famille',      label: 'Famille',      icon: Users },
 ];
 
-const MOCK_INCIDENTS = [
-  { id: 1, date: '2026-03-15', type: 'reclamation', description: 'Arrivée en retard de 30 minutes', statut: 'resolu' },
-];
+const NIVEAU_COLOR = {
+  'GIR 1': 'danger', 'GIR 2': 'danger', 'GIR 3': 'warning',
+  'GIR 4': 'warning', 'GIR 5': 'info',  'GIR 6': 'neutral',
+};
 
-const MOCK_DOCUMENTS = [
-  { id: 1, nom: 'Formulaire APA', type: 'PDF', date: '2023-01-10' },
-  { id: 2, nom: 'Ordonnance médicale', type: 'PDF', date: '2025-12-01' },
-];
+/* ─── Avatar ───────────────────────────────────────────────────────────── */
+const Avatar = ({ prenom, nom, size = 'xl' }) => {
+  const sizeClass = size === 'xl' ? 'w-20 h-20 text-2xl' : 'w-10 h-10 text-sm';
+  return (
+    <div className={`${sizeClass} rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center font-bold text-white shadow-md flex-shrink-0`}>
+      {prenom[0]}{nom[0]}
+    </div>
+  );
+};
 
-const TABS = ['Informations', 'Planning', 'Incidents', 'Documents'];
+/* ─── Info row ─────────────────────────────────────────────────────────── */
+const InfoRow = ({ icon: Icon, label, value }) => (
+  <div className="flex items-start gap-3 py-2.5 border-b border-slate-50 last:border-0">
+    <Icon size={15} className="text-teal-500 flex-shrink-0 mt-0.5" />
+    <div className="flex-1 min-w-0">
+      <p className="text-xs text-slate-400 font-medium">{label}</p>
+      <p className="text-sm font-semibold text-slate-700 mt-0.5">{value}</p>
+    </div>
+  </div>
+);
 
-export default function BeneficiaireDetailPage() {
+/* ─── Main component ───────────────────────────────────────────────────── */
+const BeneficiaireDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [beneficiaire, setBeneficiaire] = useState(null);
-  const [interventions, setInterventions] = useState([]);
-  const [activeTab, setActiveTab] = useState(0);
+  const [tab, setTab] = useState('infos');
 
-  useEffect(() => {
-    setTimeout(() => {
-      setBeneficiaire(MOCK_BENEFICIAIRE);
-      setInterventions(MOCK_INTERVENTIONS);
-      setLoading(false);
-    }, 500);
-  }, [id]);
+  const benef = MOCK_BENEFICIAIRES[id] || MOCK_BENEFICIAIRES[1];
 
-  if (loading) return <PageLoader text="Chargement du bénéficiaire..." />;
-  if (!beneficiaire) return <div className="text-center py-16 text-gray-500">Bénéficiaire introuvable.</div>;
-
-  const age = calculateAge(beneficiaire.dateNaissance);
-  const aideEnAlerte = beneficiaire.aides?.filter(a => {
-    if (!a.dateFin) return false;
-    const fin = new Date(a.dateFin);
-    const now = new Date();
-    const diff = (fin - now) / (1000 * 60 * 60 * 24);
-    return diff <= 30;
-  });
+  const interventionsParStatut = benef.interventions.reduce((acc, i) => {
+    acc[i.statut] = (acc[i.statut] || 0) + 1;
+    return acc;
+  }, {});
 
   return (
-    <div className="space-y-4 max-w-5xl">
-      {/* Back + header */}
-      <div className="flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 transition-colors">
-          <ArrowLeft size={18} />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-gray-800">{beneficiaire.prenom} {beneficiaire.nom}</h1>
-          <p className="text-gray-500 text-sm">{age} ans • {TYPES_PUBLIC_LABELS[beneficiaire.typePublic]}</p>
+    <div className="p-6 space-y-6 animate-fadeIn">
+      {/* Back button */}
+      <button
+        onClick={() => navigate(-1)}
+        className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-700 transition-colors group"
+      >
+        <ArrowLeft size={16} className="group-hover:-translate-x-0.5 transition-transform" />
+        Retour aux bénéficiaires
+      </button>
+
+      {/* Header card */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        {/* Banner */}
+        <div className="h-24 bg-gradient-to-r from-teal-600 to-teal-800 relative">
+          <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' viewBox=\'0 0 40 40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cg fill=\'%23ffffff\' fill-opacity=\'1\'%3E%3Cpath d=\'M20 20c0-5.5-4.5-10-10-10s-10 4.5-10 10 4.5 10 10 10 10-4.5 10-10zm10 0c0-5.5-4.5-10-10-10s-10 4.5-10 10 4.5 10 10 10 10-4.5 10-10z\'/%3E%3C/g%3E%3C/svg%3E")' }} />
         </div>
-        <StatusBadge status={beneficiaire.statut} label={BENEFICIAIRE_STATUT_LABELS[beneficiaire.statut]} />
-        <Button variant="secondary" icon={Edit2} size="sm">Modifier</Button>
+
+        <div className="px-6 pb-6">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-4 -mt-10 mb-4">
+            <div className="border-4 border-white rounded-2xl shadow-md">
+              <Avatar prenom={benef.prenom} nom={benef.nom} size="xl" />
+            </div>
+            <div className="flex-1 sm:pb-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-bold text-slate-800">{benef.prenom} {benef.nom}</h1>
+                <Badge variant="success" dot size="sm">{benef.statut}</Badge>
+                <Badge variant={NIVEAU_COLOR[benef.niveau] || 'info'} size="sm">{benef.niveau}</Badge>
+              </div>
+              <p className="text-sm text-slate-500 mt-1">{benef.age} ans · {benef.plan} · {benef.heuresHebdo}h/semaine</p>
+            </div>
+            <button className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-teal-700 rounded-xl hover:from-teal-700 hover:to-teal-800 transition-all">
+              <Edit2 size={14} /> Modifier
+            </button>
+          </div>
+
+          {/* Quick stats */}
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Interventions réalisées', value: interventionsParStatut['Réalisée'] || 0, color: 'text-teal-600' },
+              { label: 'Planifiées', value: interventionsParStatut['Planifiée'] || 0, color: 'text-emerald-600' },
+              { label: 'Annulées ce mois', value: interventionsParStatut['Annulée'] || 0, color: 'text-amber-600' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="text-center p-3 bg-slate-50 rounded-xl">
+                <p className={`text-xl font-bold ${color}`}>{value}</p>
+                <p className="text-xs text-slate-400 mt-0.5">{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Alert APA/PCH */}
-      {aideEnAlerte?.length > 0 && (
-        <div className="flex items-start gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-          <AlertTriangle size={18} className="text-amber-600 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="font-medium text-amber-800 text-sm">Droits à renouveler</p>
-            {aideEnAlerte.map(a => (
-              <p key={a.type} className="text-sm text-amber-700">{a.type} expire le {formatDate(a.dateFin)}</p>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Tabs */}
+      <div className="flex gap-1 bg-white border border-slate-100 shadow-sm rounded-2xl p-1.5 overflow-x-auto">
+        {TABS.map(({ id: tabId, label, icon: Icon }) => (
+          <button
+            key={tabId}
+            onClick={() => setTab(tabId)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap flex-shrink-0 ${tab === tabId ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-50'}`}
+          >
+            <Icon size={15} />
+            {label}
+          </button>
+        ))}
+      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Sidebar infos */}
-        <div className="space-y-4">
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <div className="flex flex-col items-center text-center mb-4">
-              <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mb-3">
-                <span className="text-indigo-600 text-xl font-bold">{beneficiaire.prenom[0]}{beneficiaire.nom[0]}</span>
+      {/* Tab content */}
+      <div className="animate-fadeIn" key={tab}>
+
+        {/* ─ Informations ─ */}
+        {tab === 'infos' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 space-y-4">
+              {/* Coordonnées */}
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">Coordonnées</h3>
+                <InfoRow icon={MapPin}   label="Adresse"         value={benef.adresse} />
+                <InfoRow icon={Phone}    label="Téléphone"       value={benef.telephone} />
+                <InfoRow icon={Mail}     label="Email"           value={benef.email} />
+                <InfoRow icon={Calendar} label="Date de naissance" value={`${benef.dateNaissance} (${benef.age} ans)`} />
               </div>
-              <h3 className="font-semibold text-gray-800">{beneficiaire.prenom} {beneficiaire.nom}</h3>
-              <p className="text-gray-500 text-sm">{age} ans</p>
-              <p className="text-gray-400 text-xs">Né(e) le {formatDate(beneficiaire.dateNaissance)}</p>
+
+              {/* Prise en charge */}
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">Prise en charge</h3>
+                <InfoRow icon={Heart}    label="Pathologies"     value={benef.pathologies.join(', ')} />
+                <InfoRow icon={User}     label="Intervenante"    value={benef.intervenante} />
+                <InfoRow icon={Home}     label="Plan d'aide"     value={benef.plan} />
+                <InfoRow icon={Clock}    label="Heures/semaine"  value={`${benef.heuresHebdo}h`} />
+                <InfoRow icon={Calendar} label="Début de prise en charge" value={benef.dateDebut} />
+              </div>
+
+              {/* Note coordinatrice */}
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
+                <h3 className="text-sm font-semibold text-slate-700 mb-3">Note de la coordinatrice</h3>
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-100">
+                  <p className="text-sm text-amber-800">{benef.noteCoord}</p>
+                </div>
+              </div>
             </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2 text-gray-600">
-                <Phone size={14} className="text-gray-400 flex-shrink-0" />
-                {formatPhoneNumber(beneficiaire.telephone)}
+
+            {/* Urgence */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 self-start">
+              <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <AlertCircle size={14} className="text-rose-500" />
+                Contact d'urgence
+              </h3>
+              <div className="p-4 bg-rose-50 rounded-xl border border-rose-100">
+                <p className="font-semibold text-slate-800">{benef.urgenceNom}</p>
+                <p className="text-xs text-slate-500 mb-3">{benef.urgenceLien}</p>
+                <a href={`tel:${benef.urgenceTel}`} className="flex items-center gap-2 text-sm text-rose-700 font-medium hover:text-rose-800">
+                  <Phone size={14} /> {benef.urgenceTel}
+                </a>
               </div>
-              {beneficiaire.email && (
-                <div className="flex items-center gap-2 text-gray-600">
-                  <Mail size={14} className="text-gray-400 flex-shrink-0" />
-                  <span className="truncate">{beneficiaire.email}</span>
-                </div>
-              )}
-              {beneficiaire.adresse && (
-                <div className="flex items-start gap-2 text-gray-600">
-                  <MapPin size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                  {beneficiaire.adresse}
-                </div>
-              )}
             </div>
           </div>
+        )}
 
-          {/* Aides */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h4 className="font-semibold text-gray-700 text-sm mb-3">Aides financières</h4>
-            {beneficiaire.aides?.map((aide, i) => (
-              <div key={i} className="p-3 bg-indigo-50 rounded-lg text-sm">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="font-medium text-indigo-700">{aide.type}</span>
-                  <span className="font-semibold text-gray-800">{formatMoney(aide.montantMensuel)}/mois</span>
-                </div>
-                <p className="text-xs text-gray-500">Du {formatDate(aide.dateDebut)} au {formatDate(aide.dateFin)}</p>
-                <p className="text-xs text-gray-500">Financeur : {aide.financeur}</p>
-              </div>
-            ))}
-          </div>
+        {/* ─ Interventions ─ */}
+        {tab === 'interventions' && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <h3 className="text-sm font-semibold text-slate-700 mb-5">Historique des interventions</h3>
 
-          {/* Intervenant */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4">
-            <h4 className="font-semibold text-gray-700 text-sm mb-2">Intervenant référent</h4>
-            {beneficiaire.intervenant ? (
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
-                  <User size={14} className="text-green-600" />
-                </div>
-                <p className="text-sm font-medium text-gray-700">{beneficiaire.intervenant}</p>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400 italic">Aucun intervenant assigné</p>
-            )}
-          </div>
-        </div>
+            {/* Timeline */}
+            <div className="relative">
+              <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-100" />
+              <div className="space-y-4 pl-10">
+                {benef.interventions
+                  .sort((a, b) => b.date.localeCompare(a.date))
+                  .map((interv, idx) => {
+                    const cfg = INTERV_STATUT[interv.statut] || INTERV_STATUT['Réalisée'];
+                    const Icon = cfg.icon;
+                    return (
+                      <div key={interv.id} className="relative animate-fadeIn" style={{ animationDelay: `${idx * 50}ms` }}>
+                        {/* Timeline dot */}
+                        <div className={`absolute -left-6 top-3 w-3 h-3 rounded-full border-2 border-white shadow-sm ${interv.statut === 'Réalisée' ? 'bg-teal-500' : interv.statut === 'Planifiée' ? 'bg-emerald-400' : 'bg-slate-300'}`} />
 
-        {/* Main tabs */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-200 overflow-hidden">
-          {/* Tabs */}
-          <div className="flex border-b border-gray-200 overflow-x-auto">
-            {TABS.map((tab, i) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(i)}
-                className={`px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors
-                  ${activeTab === i ? 'border-indigo-600 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700'}
-                `}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-
-          <div className="p-5">
-            {/* Tab 0: Informations */}
-            {activeTab === 0 && (
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-gray-400 uppercase font-medium mb-1">Type de public</p>
-                    <p className="text-sm text-gray-700">{TYPES_PUBLIC_LABELS[beneficiaire.typePublic] || '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-400 uppercase font-medium mb-1">Niveau de dépendance</p>
-                    <Badge variant="info">{NIVEAUX_DEPENDANCE_LABELS[beneficiaire.niveauDependance] || beneficiaire.niveauDependance}</Badge>
-                  </div>
-                </div>
-                {beneficiaire.notes && (
-                  <div>
-                    <p className="text-xs text-gray-400 uppercase font-medium mb-1">Notes</p>
-                    <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{beneficiaire.notes}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Tab 1: Planning */}
-            {activeTab === 1 && (
-              <div>
-                <h4 className="font-medium text-gray-700 mb-3 text-sm">Interventions récentes et à venir</h4>
-                <div className="space-y-2">
-                  {interventions.map((interv) => (
-                    <div key={interv.id} className="flex items-center gap-4 p-3 rounded-lg border border-gray-100 hover:bg-gray-50">
-                      <div className="text-center flex-shrink-0">
-                        <p className="text-xs text-gray-400">{formatDate(interv.date).split('/').slice(0, 2).join('/')}</p>
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-800">{interv.service}</p>
-                        <p className="text-xs text-gray-500">{interv.heureDebut} – {interv.heureFin} • {interv.intervenant}</p>
-                      </div>
-                      <Badge variant={interv.statut === 'terminee' ? 'success' : interv.statut === 'planifiee' ? 'info' : 'gray'} size="xs">
-                        {interv.statut === 'terminee' ? 'Terminée' : interv.statut === 'planifiee' ? 'Planifiée' : interv.statut}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Tab 2: Incidents */}
-            {activeTab === 2 && (
-              <div>
-                {MOCK_INCIDENTS.length === 0 ? (
-                  <p className="text-center text-gray-400 text-sm py-8">Aucun incident</p>
-                ) : (
-                  <div className="space-y-3">
-                    {MOCK_INCIDENTS.map(inc => (
-                      <div key={inc.id} className="p-3 border border-gray-100 rounded-lg">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium text-gray-700">{inc.type}</span>
-                          <Badge variant={inc.statut === 'resolu' ? 'success' : 'danger'} size="xs">{inc.statut}</Badge>
+                        <div className={`rounded-xl border p-4 ${interv.statut === 'Planifiée' ? 'border-teal-100 bg-teal-50/40' : interv.statut === 'Annulée' ? 'border-slate-100 bg-slate-50/50 opacity-70' : 'border-slate-100 bg-white'}`}>
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-semibold text-slate-700">{interv.type}</span>
+                              <Badge variant={cfg.variant} size="xs" dot>{interv.statut}</Badge>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-slate-400">
+                              <span className="flex items-center gap-1"><Calendar size={11} />{interv.date}</span>
+                              <span className="flex items-center gap-1"><Clock size={11} />{interv.heure} · {interv.duree}</span>
+                            </div>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-2">
+                            <span className="font-medium text-slate-600">Intervenant(e) :</span> {interv.intervenant}
+                          </p>
+                          {interv.note && (
+                            <p className="text-xs text-slate-500 mt-1 italic">"{interv.note}"</p>
+                          )}
                         </div>
-                        <p className="text-xs text-gray-500">{formatDate(inc.date)} — {inc.description}</p>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    );
+                  })}
               </div>
-            )}
+            </div>
+          </div>
+        )}
 
-            {/* Tab 3: Documents */}
-            {activeTab === 3 && (
-              <div>
-                <div className="space-y-2">
-                  {MOCK_DOCUMENTS.map(doc => (
-                    <div key={doc.id} className="flex items-center gap-3 p-3 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer">
-                      <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <FileText size={14} className="text-red-500" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-800">{doc.nom}</p>
-                        <p className="text-xs text-gray-400">{doc.type} • {formatDate(doc.date)}</p>
-                      </div>
+        {/* ─ Documents ─ */}
+        {tab === 'documents' && (
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-sm font-semibold text-slate-700">Documents ({benef.documents.length})</h3>
+              <button className="flex items-center gap-2 px-3 py-1.5 text-sm text-teal-700 bg-teal-50 border border-teal-100 rounded-xl hover:bg-teal-100 transition-all">
+                <Paperclip size={14} /> Ajouter
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              {benef.documents.map((doc, idx) => (
+                <div
+                  key={doc.id}
+                  className="flex items-center gap-4 p-3 rounded-xl border border-slate-100 hover:bg-slate-50 hover:border-teal-100 transition-all group animate-fadeIn"
+                  style={{ animationDelay: `${idx * 40}ms` }}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0 ${DOC_COLORS[doc.icone] || DOC_COLORS.pdf}`}>
+                    {doc.icone.toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-700 truncate">{doc.nom}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-slate-400">{doc.type}</span>
+                      <span className="text-xs text-slate-300">·</span>
+                      <span className="text-xs text-slate-400">{doc.taille}</span>
+                      <span className="text-xs text-slate-300">·</span>
+                      <span className="text-xs text-slate-400">{doc.date}</span>
                     </div>
-                  ))}
+                  </div>
+                  <button className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all">
+                    <Download size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ─ Famille ─ */}
+        {tab === 'famille' && (
+          <div className="space-y-4">
+            {benef.famille.map((membre, idx) => (
+              <div
+                key={membre.nom}
+                className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex flex-col sm:flex-row sm:items-center gap-4 animate-slideUp"
+                style={{ animationDelay: `${idx * 80}ms` }}
+              >
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center font-bold text-white text-sm flex-shrink-0">
+                  {membre.nom.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-semibold text-slate-800">{membre.nom}</p>
+                    <Badge variant="neutral" size="xs">{membre.lien}</Badge>
+                    {membre.contact_urgence && <Badge variant="danger" size="xs" dot>Urgence</Badge>}
+                  </div>
+                  <div className="flex items-center gap-4 mt-2 flex-wrap">
+                    <a href={`tel:${membre.telephone}`} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-teal-600 transition-colors">
+                      <Phone size={13} /> {membre.telephone}
+                    </a>
+                    <a href={`mailto:${membre.email}`} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-teal-600 transition-colors">
+                      <Mail size={13} /> {membre.email}
+                    </a>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-all">
+                    <Phone size={15} />
+                  </button>
+                  <button className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-all">
+                    <Mail size={15} />
+                  </button>
                 </div>
               </div>
-            )}
+            ))}
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
-}
+};
+
+export default BeneficiaireDetailPage;

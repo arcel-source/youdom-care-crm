@@ -1,169 +1,370 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Plus, Eye, CheckCircle, Trash2, AlertTriangle } from 'lucide-react';
-import Badge from '../components/common/Badge';
-import Modal from '../components/common/Modal';
-import ConfirmDialog from '../components/common/ConfirmDialog';
+import React, { useState, useMemo } from 'react';
+import {
+  FileText,
+  Plus,
+  Download,
+  Search,
+  Filter,
+  ChevronDown,
+  Eye,
+  Edit2,
+  Trash2,
+  X,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  XCircle,
+  TrendingUp,
+  Euro,
+  BarChart2,
+} from 'lucide-react';
 import StatCard from '../components/common/StatCard';
-import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
-import Select from '../components/ui/Select';
+import Modal from '../components/common/Modal';
+import Badge from '../components/common/Badge';
 import EmptyState from '../components/common/EmptyState';
-import { PageLoader } from '../components/common/LoadingSpinner';
-import { formatDate, formatMoney, filterBySearch, getStatusVariant } from '../utils/helpers';
-import { FACTURE_STATUT_LABELS } from '../utils/constants';
 
+/* ─── Mock data ────────────────────────────────────────────────────────── */
 const MOCK_FACTURES = [
-  { id: 1, reference: 'FAC-2026-001', beneficiaire: 'Marie Dupont', statut: 'payee', montantTotal: 850, montantPaye: 850, dateEmission: '2026-03-01', dateEcheance: '2026-03-31', ventilation: [{ financeur: 'APA', montant: 680 }, { financeur: 'Particulier', montant: 170 }] },
-  { id: 2, reference: 'FAC-2026-002', beneficiaire: 'Jean Martin', statut: 'envoyee', montantTotal: 1200, montantPaye: 0, dateEmission: '2026-03-05', dateEcheance: '2026-04-05', ventilation: [{ financeur: 'PCH', montant: 1000 }, { financeur: 'Particulier', montant: 200 }] },
-  { id: 3, reference: 'FAC-2026-003', beneficiaire: 'Isabelle Petit', statut: 'en_retard', montantTotal: 320, montantPaye: 0, dateEmission: '2026-02-01', dateEcheance: '2026-02-28', ventilation: [{ financeur: 'Particulier', montant: 320 }] },
-  { id: 4, reference: 'FAC-2026-004', beneficiaire: 'Lucie Moreau', statut: 'emise', montantTotal: 600, montantPaye: 0, dateEmission: '2026-04-01', dateEcheance: '2026-04-30', ventilation: [{ financeur: 'APA', montant: 480 }, { financeur: 'Mutuelle', montant: 120 }] },
+  { id: 'FAC-2024-001', beneficiaire: 'Marie Dupont', service: 'Aide à domicile', periode: 'Janvier 2024', montant: 1240.00, statut: 'Payée', dateEmission: '2024-01-31', dateEcheance: '2024-02-15', datePaiement: '2024-02-10', intervenant: 'Sophie Martin' },
+  { id: 'FAC-2024-002', beneficiaire: 'Jean Leroy', service: 'Aide ménagère', periode: 'Janvier 2024', montant: 680.50, statut: 'En attente', dateEmission: '2024-01-31', dateEcheance: '2024-02-15', datePaiement: null, intervenant: 'Fatou Diallo' },
+  { id: 'FAC-2024-003', beneficiaire: 'Simone Moreau', service: 'Aide à domicile', periode: 'Janvier 2024', montant: 1560.00, statut: 'Impayée', dateEmission: '2024-01-31', dateEcheance: '2024-02-15', datePaiement: null, intervenant: 'Claire Bernard' },
+  { id: 'FAC-2024-004', beneficiaire: 'André Petit', service: 'Portage de repas', periode: 'Janvier 2024', montant: 340.00, statut: 'Payée', dateEmission: '2024-01-31', dateEcheance: '2024-02-15', datePaiement: '2024-02-08', intervenant: 'Karine Lefebvre' },
+  { id: 'FAC-2024-005', beneficiaire: 'Yvette Garnier', service: 'Aide à domicile', periode: 'Février 2024', montant: 1120.00, statut: 'Payée', dateEmission: '2024-02-29', dateEcheance: '2024-03-15', datePaiement: '2024-03-12', intervenant: 'Sophie Martin' },
+  { id: 'FAC-2024-006', beneficiaire: 'Roger Blanc', service: 'Aide ménagère', periode: 'Février 2024', montant: 520.75, statut: 'Annulée', dateEmission: '2024-02-29', dateEcheance: '2024-03-15', datePaiement: null, intervenant: 'Fatou Diallo' },
+  { id: 'FAC-2024-007', beneficiaire: 'Hélène Rousseau', service: 'Aide à domicile', periode: 'Février 2024', montant: 1890.00, statut: 'En attente', dateEmission: '2024-02-29', dateEcheance: '2024-03-15', datePaiement: null, intervenant: 'Claire Bernard' },
+  { id: 'FAC-2024-008', beneficiaire: 'Paul Fontaine', service: 'Garde de nuit', periode: 'Février 2024', montant: 2340.00, statut: 'Payée', dateEmission: '2024-02-29', dateEcheance: '2024-03-15', datePaiement: '2024-03-05', intervenant: 'Marc Aubert' },
+  { id: 'FAC-2024-009', beneficiaire: 'Lucie Renard', service: 'Aide à domicile', periode: 'Mars 2024', montant: 1360.00, statut: 'En attente', dateEmission: '2024-03-31', dateEcheance: '2024-04-15', datePaiement: null, intervenant: 'Sophie Martin' },
+  { id: 'FAC-2024-010', beneficiaire: 'Georges Lambert', service: 'Aide ménagère', periode: 'Mars 2024', montant: 760.00, statut: 'Impayée', dateEmission: '2024-03-31', dateEcheance: '2024-04-15', datePaiement: null, intervenant: 'Karine Lefebvre' },
 ];
 
-const STATUT_OPTIONS = [
-  { value: '', label: 'Tous les statuts' },
-  { value: 'brouillon', label: 'Brouillon' }, { value: 'emise', label: 'Émise' },
-  { value: 'envoyee', label: 'Envoyée' }, { value: 'payee', label: 'Payée' },
-  { value: 'en_retard', label: 'En retard' }, { value: 'annulee', label: 'Annulée' },
-];
+const STATUT_CONFIG = {
+  'Payée':      { variant: 'success', icon: CheckCircle },
+  'En attente': { variant: 'warning', icon: Clock },
+  'Impayée':    { variant: 'danger',  icon: AlertCircle },
+  'Annulée':    { variant: 'neutral', icon: XCircle },
+};
 
-export default function FacturesPage() {
-  const [factures, setFactures] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [filterStatut, setFilterStatut] = useState('');
-  const [showDetail, setShowDetail] = useState(null);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [selectedId, setSelectedId] = useState(null);
+const PERIODES = ['Toutes les périodes', 'Janvier 2024', 'Février 2024', 'Mars 2024'];
+const STATUTS  = ['Tous les statuts', 'Payée', 'En attente', 'Impayée', 'Annulée'];
 
-  useEffect(() => {
-    setTimeout(() => { setFactures(MOCK_FACTURES); setLoading(false); }, 400);
-  }, []);
+const EMPTY_FORM = {
+  beneficiaire: '', service: 'Aide à domicile', periode: '', montant: '', statut: 'En attente',
+  dateEmission: '', dateEcheance: '', intervenant: '',
+};
 
-  const filtered = factures
-    .filter(f => !filterStatut || f.statut === filterStatut)
-    .filter(f => filterBySearch([f], search, ['reference', 'beneficiaire']).length > 0);
+/* ─── Helpers ──────────────────────────────────────────────────────────── */
+const fmt = (n) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n);
 
-  const totalEmis = factures.reduce((s, f) => s + f.montantTotal, 0);
-  const totalPaye = factures.reduce((s, f) => s + f.montantPaye, 0);
-  const totalImpaye = totalEmis - totalPaye;
-  const nbRetard = factures.filter(f => f.statut === 'en_retard').length;
+/* ─── Component ────────────────────────────────────────────────────────── */
+const FacturesPage = () => {
+  const [search, setSearch]     = useState('');
+  const [periode, setPeriode]   = useState('Toutes les périodes');
+  const [statut, setStatut]     = useState('Tous les statuts');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [viewModal, setViewModal] = useState(null);
+  const [form, setForm]         = useState(EMPTY_FORM);
+  const [editId, setEditId]     = useState(null);
+  const [factures, setFactures] = useState(MOCK_FACTURES);
 
-  const handleMarkPaid = (id) => {
-    setFactures(prev => prev.map(f => f.id === id ? { ...f, statut: 'payee', montantPaye: f.montantTotal } : f));
+  /* Stats */
+  const stats = useMemo(() => {
+    const payees    = factures.filter(f => f.statut === 'Payée');
+    const impayees  = factures.filter(f => f.statut === 'Impayée');
+    const attente   = factures.filter(f => f.statut === 'En attente');
+    const ca        = payees.reduce((s, f) => s + f.montant, 0);
+    const totalImp  = impayees.reduce((s, f) => s + f.montant, 0);
+    const totalAtt  = attente.reduce((s, f) => s + f.montant, 0);
+    const total     = factures.reduce((s, f) => s + f.montant, 0);
+    const taux      = total > 0 ? Math.round((ca / total) * 100) : 0;
+    return { ca, impayees: totalImp, attente: totalAtt, taux };
+  }, [factures]);
+
+  /* Filtered list */
+  const filtered = useMemo(() => {
+    return factures.filter(f => {
+      const matchSearch = search === '' ||
+        f.beneficiaire.toLowerCase().includes(search.toLowerCase()) ||
+        f.id.toLowerCase().includes(search.toLowerCase());
+      const matchPeriode = periode === 'Toutes les périodes' || f.periode === periode;
+      const matchStatut  = statut  === 'Tous les statuts'   || f.statut  === statut;
+      return matchSearch && matchPeriode && matchStatut;
+    });
+  }, [factures, search, periode, statut]);
+
+  /* Actions */
+  const openCreate = () => { setForm(EMPTY_FORM); setEditId(null); setModalOpen(true); };
+  const openEdit   = (f)  => {
+    setForm({ beneficiaire: f.beneficiaire, service: f.service, periode: f.periode, montant: f.montant, statut: f.statut, dateEmission: f.dateEmission, dateEcheance: f.dateEcheance, intervenant: f.intervenant });
+    setEditId(f.id);
+    setModalOpen(true);
   };
 
-  const handleDelete = async () => {
-    await new Promise(r => setTimeout(r, 400));
-    setFactures(prev => prev.filter(f => f.id !== selectedId));
-    setShowConfirm(false);
+  const handleSave = () => {
+    if (editId) {
+      setFactures(prev => prev.map(f => f.id === editId ? { ...f, ...form, montant: parseFloat(form.montant) } : f));
+    } else {
+      const newId = `FAC-2024-${String(factures.length + 1).padStart(3, '0')}`;
+      setFactures(prev => [...prev, { ...form, id: newId, montant: parseFloat(form.montant) || 0, datePaiement: null }]);
+    }
+    setModalOpen(false);
   };
 
-  const detail = showDetail ? factures.find(f => f.id === showDetail) : null;
+  const handleDelete = (id) => {
+    if (window.confirm('Supprimer cette facture ?')) {
+      setFactures(prev => prev.filter(f => f.id !== id));
+    }
+  };
 
-  if (loading) return <PageLoader text="Chargement des factures..." />;
+  const handleExport = () => {
+    const csv = [
+      ['ID', 'Bénéficiaire', 'Service', 'Période', 'Montant', 'Statut', 'Date émission', 'Date échéance'].join(';'),
+      ...filtered.map(f => [f.id, f.beneficiaire, f.service, f.periode, f.montant, f.statut, f.dateEmission, f.dateEcheance].join(';')),
+    ].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a'); a.href = url; a.download = 'factures.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-800">Factures</h1>
-        <p className="text-gray-500 text-sm">{filtered.length} facture{filtered.length > 1 ? 's' : ''}</p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total émis" value={formatMoney(totalEmis)} icon="Receipt" color="indigo" />
-        <StatCard title="Encaissé" value={formatMoney(totalPaye)} icon="CheckCircle" color="green" />
-        <StatCard title="Impayé" value={formatMoney(totalImpaye)} icon="AlertCircle" color="amber" />
-        <StatCard title="En retard" value={nbRetard} icon="Clock" color="red" />
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
-          <Select options={STATUT_OPTIONS} value={filterStatut} onChange={e => setFilterStatut(e.target.value)} />
+    <div className="p-6 space-y-6 animate-fadeIn">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Facturation</h1>
+          <p className="text-sm text-slate-500 mt-0.5">{factures.length} factures · exercice 2024</p>
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all"
+          >
+            <Download size={16} /> Exporter
+          </button>
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-teal-700 rounded-xl hover:from-teal-700 hover:to-teal-800 shadow-sm hover:shadow-md transition-all active:scale-95"
+          >
+            <Plus size={16} /> Nouvelle facture
+          </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      {/* Stats cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Chiffre d'affaires"
+          value={fmt(stats.ca)}
+          icon={Euro}
+          color="teal"
+          trend="+8.2%"
+          trendUp={true}
+        />
+        <StatCard
+          title="Impayées"
+          value={fmt(stats.impayees)}
+          icon={AlertCircle}
+          color="rose"
+          trend="2 factures"
+          trendUp={false}
+        />
+        <StatCard
+          title="En attente"
+          value={fmt(stats.attente)}
+          icon={Clock}
+          color="amber"
+          trend="3 factures"
+          trendUp={null}
+        />
+        <StatCard
+          title="Taux de recouvrement"
+          value={`${stats.taux}%`}
+          icon={TrendingUp}
+          color="emerald"
+          trend="+3pts"
+          trendUp={true}
+        />
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher une facture ou un bénéficiaire…"
+            className="w-full pl-9 pr-4 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 focus:border-transparent"
+          />
+        </div>
+
+        <div className="relative">
+          <select
+            value={periode}
+            onChange={e => setPeriode(e.target.value)}
+            className="appearance-none pl-4 pr-9 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 cursor-pointer"
+          >
+            {PERIODES.map(p => <option key={p}>{p}</option>)}
+          </select>
+          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        </div>
+
+        <div className="relative">
+          <select
+            value={statut}
+            onChange={e => setStatut(e.target.value)}
+            className="appearance-none pl-4 pr-9 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 cursor-pointer"
+          >
+            {STATUTS.map(s => <option key={s}>{s}</option>)}
+          </select>
+          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden animate-slideUp">
         {filtered.length === 0 ? (
-          <EmptyState icon="Receipt" title="Aucune facture trouvée" />
+          <EmptyState icon="file" title="Aucune facture trouvée" description="Modifiez vos filtres ou créez une nouvelle facture." action="Nouvelle facture" onAction={openCreate} />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Référence</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Bénéficiaire</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Statut</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Montant</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell">Émission</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell">Échéance</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-600">Actions</th>
+                <tr className="border-b border-slate-100 bg-slate-50">
+                  {['Référence', 'Bénéficiaire', 'Service', 'Période', 'Montant', 'Statut', 'Échéance', 'Actions'].map(h => (
+                    <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
+                  ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filtered.map(f => (
-                  <tr key={f.id} className={`hover:bg-gray-50 ${f.statut === 'en_retard' ? 'bg-red-50/30' : ''}`}>
-                    <td className="px-4 py-3 font-mono text-xs text-gray-600">{f.reference}</td>
-                    <td className="px-4 py-3 font-medium text-gray-800">{f.beneficiaire}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        {f.statut === 'en_retard' && <AlertTriangle size={13} className="text-red-500 flex-shrink-0" />}
-                        <Badge variant={getStatusVariant(f.statut)} size="xs">{FACTURE_STATUT_LABELS[f.statut]}</Badge>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 hidden md:table-cell font-semibold text-gray-700">{formatMoney(f.montantTotal)}</td>
-                    <td className="px-4 py-3 hidden lg:table-cell text-gray-500">{formatDate(f.dateEmission)}</td>
-                    <td className="px-4 py-3 hidden lg:table-cell text-gray-500">{formatDate(f.dateEcheance)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setShowDetail(f.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"><Eye size={15} /></button>
-                        {['emise', 'envoyee', 'en_retard'].includes(f.statut) && (
-                          <button onClick={() => handleMarkPaid(f.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50" title="Marquer payée"><CheckCircle size={15} /></button>
-                        )}
-                        <button onClick={() => { setSelectedId(f.id); setShowConfirm(true); }} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"><Trash2 size={15} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+              <tbody className="divide-y divide-slate-50">
+                {filtered.map((f, idx) => {
+                  const cfg = STATUT_CONFIG[f.statut] || STATUT_CONFIG['En attente'];
+                  const Icon = cfg.icon;
+                  return (
+                    <tr key={f.id} className="hover:bg-teal-50/30 transition-colors group" style={{ animationDelay: `${idx * 30}ms` }}>
+                      <td className="px-4 py-3">
+                        <span className="font-mono text-xs font-medium text-teal-700 bg-teal-50 px-2 py-1 rounded-lg">{f.id}</span>
+                      </td>
+                      <td className="px-4 py-3 font-medium text-slate-700">{f.beneficiaire}</td>
+                      <td className="px-4 py-3 text-slate-500">{f.service}</td>
+                      <td className="px-4 py-3 text-slate-500">{f.periode}</td>
+                      <td className="px-4 py-3 font-semibold text-slate-800">{fmt(f.montant)}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant={cfg.variant} dot size="sm">
+                          {f.statut}
+                        </Badge>
+                      </td>
+                      <td className="px-4 py-3 text-slate-500">{f.dateEcheance}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => setViewModal(f)} className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-all">
+                            <Eye size={14} />
+                          </button>
+                          <button onClick={() => openEdit(f)} className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-all">
+                            <Edit2 size={14} />
+                          </button>
+                          <button onClick={() => handleDelete(f.id)} className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all">
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </div>
 
-      {/* Detail modal */}
-      <Modal isOpen={!!detail} onClose={() => setShowDetail(null)} title={detail ? `Facture ${detail.reference}` : ''} size="md">
-        {detail && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><p className="text-xs text-gray-400 mb-1">Bénéficiaire</p><p className="font-medium">{detail.beneficiaire}</p></div>
-              <div><p className="text-xs text-gray-400 mb-1">Statut</p><Badge variant={getStatusVariant(detail.statut)}>{FACTURE_STATUT_LABELS[detail.statut]}</Badge></div>
-              <div><p className="text-xs text-gray-400 mb-1">Montant total</p><p className="font-bold text-xl text-gray-800">{formatMoney(detail.montantTotal)}</p></div>
-              <div><p className="text-xs text-gray-400 mb-1">Encaissé</p><p className="font-bold text-xl text-green-700">{formatMoney(detail.montantPaye)}</p></div>
-              <div><p className="text-xs text-gray-400 mb-1">Date émission</p><p>{formatDate(detail.dateEmission)}</p></div>
-              <div><p className="text-xs text-gray-400 mb-1">Échéance</p><p>{formatDate(detail.dateEcheance)}</p></div>
+      {/* Create/Edit Modal */}
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editId ? 'Modifier la facture' : 'Nouvelle facture'}
+        size="lg"
+        footer={
+          <>
+            <button onClick={() => setModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
+              Annuler
+            </button>
+            <button onClick={handleSave} className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-teal-600 to-teal-700 rounded-xl hover:from-teal-700 hover:to-teal-800 transition-all">
+              {editId ? 'Enregistrer' : 'Créer la facture'}
+            </button>
+          </>
+        }
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {[
+            { label: 'Bénéficiaire', key: 'beneficiaire', type: 'text', placeholder: 'Nom du bénéficiaire' },
+            { label: 'Intervenant', key: 'intervenant', type: 'text', placeholder: 'Nom de l\'intervenant' },
+            { label: 'Période', key: 'periode', type: 'text', placeholder: 'ex. Janvier 2024' },
+            { label: 'Montant (€)', key: 'montant', type: 'number', placeholder: '0.00' },
+            { label: 'Date d\'émission', key: 'dateEmission', type: 'date' },
+            { label: 'Date d\'échéance', key: 'dateEcheance', type: 'date' },
+          ].map(({ label, key, type, placeholder }) => (
+            <div key={key}>
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">{label}</label>
+              <input
+                type={type}
+                value={form[key]}
+                onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+                placeholder={placeholder}
+                className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 bg-slate-50 focus:bg-white transition-all"
+              />
             </div>
-            <div>
-              <p className="text-sm font-semibold text-gray-700 mb-2">Ventilation financeurs</p>
-              <div className="space-y-2">
-                {detail.ventilation.map((v, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg text-sm">
-                    <span className="text-gray-700">{v.financeur}</span>
-                    <span className="font-semibold text-gray-800">{formatMoney(v.montant)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+          ))}
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Service</label>
+            <select value={form.service} onChange={e => setForm(p => ({ ...p, service: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 bg-slate-50">
+              {['Aide à domicile', 'Aide ménagère', 'Portage de repas', 'Garde de nuit', 'Accompagnement'].map(s => <option key={s}>{s}</option>)}
+            </select>
           </div>
-        )}
+
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Statut</label>
+            <select value={form.statut} onChange={e => setForm(p => ({ ...p, statut: e.target.value }))} className="w-full px-3 py-2.5 text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 bg-slate-50">
+              {['En attente', 'Payée', 'Impayée', 'Annulée'].map(s => <option key={s}>{s}</option>)}
+            </select>
+          </div>
+        </div>
       </Modal>
 
-      <ConfirmDialog isOpen={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={handleDelete} title="Supprimer la facture" message="Cette facture sera définitivement supprimée." />
+      {/* View Modal */}
+      {viewModal && (
+        <Modal isOpen={!!viewModal} onClose={() => setViewModal(null)} title={`Facture ${viewModal.id}`} size="md"
+          footer={
+            <button onClick={() => setViewModal(null)} className="px-4 py-2 text-sm text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-all">
+              Fermer
+            </button>
+          }
+        >
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-4 bg-slate-50 rounded-xl">
+              <span className="text-2xl font-bold text-slate-800">{fmt(viewModal.montant)}</span>
+              <Badge variant={STATUT_CONFIG[viewModal.statut]?.variant} dot size="md">{viewModal.statut}</Badge>
+            </div>
+            <dl className="grid grid-cols-2 gap-3">
+              {[
+                ['Bénéficiaire', viewModal.beneficiaire],
+                ['Intervenant', viewModal.intervenant],
+                ['Service', viewModal.service],
+                ['Période', viewModal.periode],
+                ['Date d\'émission', viewModal.dateEmission],
+                ['Date d\'échéance', viewModal.dateEcheance],
+                ['Date de paiement', viewModal.datePaiement || '—'],
+              ].map(([k, v]) => (
+                <div key={k}>
+                  <dt className="text-xs text-slate-400 font-medium">{k}</dt>
+                  <dd className="text-sm font-semibold text-slate-700 mt-0.5">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </Modal>
+      )}
     </div>
   );
-}
+};
+
+export default FacturesPage;

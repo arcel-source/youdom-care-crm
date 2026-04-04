@@ -1,216 +1,319 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Plus, Eye, Edit2, Trash2, Star } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import {
+  Star,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  ThumbsUp,
+  ChevronDown,
+  Shield,
+  MessageSquare,
+  BarChart2,
+} from 'lucide-react';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  Legend,
+} from 'recharts';
 import Badge from '../components/common/Badge';
-import Modal from '../components/common/Modal';
-import ConfirmDialog from '../components/common/ConfirmDialog';
-import StatCard from '../components/common/StatCard';
-import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
-import Select from '../components/ui/Select';
-import TextArea from '../components/ui/TextArea';
-import EmptyState from '../components/common/EmptyState';
-import { PageLoader } from '../components/common/LoadingSpinner';
-import { formatDate, filterBySearch, getStatusVariant } from '../utils/helpers';
-import { QUALITE_STATUT_LABELS, QUALITE_TYPE_LABELS } from '../utils/constants';
 
-const MOCK_TICKETS = [
-  { id: 1, reference: 'INC-001', type: 'incident', titre: 'Intervenant absent sans prévenir', beneficiaire: 'Marie Dupont', statut: 'resolu', priorite: 'haute', date: '2026-03-15', description: 'L\'intervenant n\'est pas venu à l\'intervention planifiée du 15/03.', satisfaction: null },
-  { id: 2, reference: 'REC-001', type: 'reclamation', titre: 'Qualité du ménage insuffisante', beneficiaire: 'Jean Martin', statut: 'en_cours', priorite: 'moyenne', date: '2026-03-22', description: 'La famille signale que le ménage n\'est pas effectué correctement.', satisfaction: null },
-  { id: 3, reference: 'SUG-001', type: 'suggestion', titre: 'Proposition horaires flexibles', beneficiaire: 'Isabelle Petit', statut: 'ouvert', priorite: 'basse', date: '2026-03-28', description: 'Demande de pouvoir choisir les horaires d\'intervention.', satisfaction: null },
-  { id: 4, reference: 'FEL-001', type: 'felicitation', titre: 'Très satisfait de Claire Martin', beneficiaire: 'Lucie Moreau', statut: 'ferme', priorite: 'basse', date: '2026-03-30', description: 'Félicitations pour la qualité du travail de l\'intervenante.', satisfaction: 5 },
+/* ─── Mock data ────────────────────────────────────────────────────────── */
+const SATISFACTION_DATA = [
+  { mois: 'Oct', satisfaits: 87, neutres: 9, insatisfaits: 4 },
+  { mois: 'Nov', satisfaits: 89, neutres: 8, insatisfaits: 3 },
+  { mois: 'Déc', satisfaits: 84, neutres: 11, insatisfaits: 5 },
+  { mois: 'Jan', satisfaits: 91, neutres: 7, insatisfaits: 2 },
+  { mois: 'Fév', satisfaits: 88, neutres: 9, insatisfaits: 3 },
+  { mois: 'Mar', satisfaits: 93, neutres: 5, insatisfaits: 2 },
 ];
 
-const TYPE_OPTIONS = [
-  { value: '', label: 'Tous les types' },
-  { value: 'incident', label: 'Incident' }, { value: 'reclamation', label: 'Réclamation' },
-  { value: 'suggestion', label: 'Suggestion' }, { value: 'felicitation', label: 'Félicitation' },
+const NPS_EVOLUTION = [
+  { mois: 'Oct', nps: 52 },
+  { mois: 'Nov', nps: 58 },
+  { mois: 'Déc', nps: 49 },
+  { mois: 'Jan', nps: 63 },
+  { mois: 'Fév', nps: 61 },
+  { mois: 'Mar', nps: 68 },
 ];
 
-const STATUT_OPTIONS = [
-  { value: '', label: 'Tous les statuts' },
-  { value: 'ouvert', label: 'Ouvert' }, { value: 'en_cours', label: 'En cours' },
-  { value: 'resolu', label: 'Résolu' }, { value: 'ferme', label: 'Fermé' },
+const INCIDENTS = [
+  { id: 1, date: '2024-03-28', type: 'Retard intervenant', beneficiaire: 'Marie Dupont', gravite: 'Faible', statut: 'Résolu', description: 'Intervenant en retard de 25 min suite à embouteillages. Bénéficiaire prévenue.', resolution: 'Contact téléphonique, excuses présentées.' },
+  { id: 2, date: '2024-03-22', type: 'Réclamation qualité', beneficiaire: 'Jean Leroy', gravite: 'Moyenne', statut: 'En cours', description: 'Bénéficiaire insatisfait du ménage réalisé.', resolution: '' },
+  { id: 3, date: '2024-03-15', type: 'Absence non signalée', beneficiaire: 'Simone Moreau', gravite: 'Élevée', statut: 'Résolu', description: 'Intervenant absent sans prévenir. Remplacement organisé en urgence.', resolution: 'Entretien disciplinaire. Procédure de remplacement renforcée.' },
+  { id: 4, date: '2024-03-08', type: 'Accident domestique', beneficiaire: 'André Petit', gravite: 'Faible', statut: 'Résolu', description: 'Chute légère du bénéficiaire lors du transfert. Pas de blessure.', resolution: 'Déclaration accident, révision protocole transfert.' },
+  { id: 5, date: '2024-02-28', type: 'Retard intervenant', beneficiaire: 'Yvette Garnier', gravite: 'Faible', statut: 'Résolu', description: 'Retard de 15 min, bénéficiaire informé.', resolution: 'Replanification du créneau.' },
+  { id: 6, date: '2024-02-14', type: 'Réclamation qualité', beneficiaire: 'Roger Blanc', gravite: 'Moyenne', statut: 'Résolu', description: 'Repas non conforme au régime alimentaire prescrit.', resolution: 'Information transmise au prestataire repas, régime renforcé.' },
 ];
 
-const PRIORITE_OPTIONS = [
-  { value: 'haute', label: 'Haute' }, { value: 'moyenne', label: 'Moyenne' }, { value: 'basse', label: 'Basse' },
-];
+const GRAVITE_CONFIG = {
+  'Faible':  { variant: 'success' },
+  'Moyenne': { variant: 'warning' },
+  'Élevée':  { variant: 'danger' },
+};
 
-const EMPTY_FORM = { titre: '', type: 'incident', beneficiaire: '', priorite: 'moyenne', statut: 'ouvert', description: '' };
+const STATUT_CONFIG = {
+  'Résolu':   { variant: 'success', icon: CheckCircle },
+  'En cours': { variant: 'warning', icon: Clock },
+};
 
-export default function QualitePage() {
-  const [tickets, setTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [filterType, setFilterType] = useState('');
-  const [filterStatut, setFilterStatut] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [showDetail, setShowDetail] = useState(null);
-  const [selectedId, setSelectedId] = useState(null);
-  const [formData, setFormData] = useState(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
+const PERIODES = ['3 derniers mois', '6 derniers mois', '12 derniers mois'];
 
-  useEffect(() => {
-    setTimeout(() => { setTickets(MOCK_TICKETS); setLoading(false); }, 400);
-  }, []);
+/* ─── NPS Gauge ────────────────────────────────────────────────────────── */
+const NPSGauge = ({ score }) => {
+  const clamp    = Math.max(-100, Math.min(100, score));
+  const pct      = (clamp + 100) / 200;
+  const angle    = pct * 180 - 90;
+  const r        = 70;
+  const cx       = 90;
+  const cy       = 90;
+  const startX   = cx - r;
+  const endX     = cx + r;
 
-  const filtered = tickets
-    .filter(t => !filterType || t.type === filterType)
-    .filter(t => !filterStatut || t.statut === filterStatut)
-    .filter(t => filterBySearch([t], search, ['titre', 'beneficiaire', 'reference']).length > 0);
-
-  const totalOuverts = tickets.filter(t => t.statut === 'ouvert').length;
-  const totalResolus = tickets.filter(t => ['resolu', 'ferme'].includes(t.statut)).length;
-  const avgSat = tickets.filter(t => t.satisfaction).reduce((s, t, _, arr) => s + t.satisfaction / arr.length, 0);
-
-  const handleSave = async () => {
-    setSaving(true);
-    await new Promise(r => setTimeout(r, 500));
-    const newId = Math.max(...tickets.map(t => t.id), 0) + 1;
-    const prefixMap = { incident: 'INC', reclamation: 'REC', suggestion: 'SUG', felicitation: 'FEL' };
-    const prefix = prefixMap[formData.type] || 'TKT';
-    const newRef = `${prefix}-${String(newId).padStart(3, '0')}`;
-    setTickets(prev => [{ ...formData, id: newId, reference: newRef, date: new Date().toISOString().split('T')[0], satisfaction: null }, ...prev]);
-    setSaving(false);
-    setShowModal(false);
-  };
-
-  const handleDelete = async () => {
-    await new Promise(r => setTimeout(r, 400));
-    setTickets(prev => prev.filter(t => t.id !== selectedId));
-    setShowConfirm(false);
-  };
-
-  const getPrioriteVariant = (p) => ({ haute: 'danger', moyenne: 'warning', basse: 'gray' }[p] || 'gray');
-  const getTypeVariant = (t) => ({ incident: 'danger', reclamation: 'warning', suggestion: 'info', felicitation: 'success' }[t] || 'gray');
-
-  const detail = showDetail ? tickets.find(t => t.id === showDetail) : null;
-
-  if (loading) return <PageLoader text="Chargement des tickets qualité..." />;
+  const npsColor = score >= 50 ? '#10b981' : score >= 0 ? '#f59e0b' : '#f43f5e';
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-800">Qualité</h1>
-          <p className="text-gray-500 text-sm">{filtered.length} ticket{filtered.length > 1 ? 's' : ''}</p>
-        </div>
-        <Button icon={Plus} onClick={() => { setFormData(EMPTY_FORM); setShowModal(true); }}>Nouveau ticket</Button>
+    <div className="flex flex-col items-center">
+      <svg width="180" height="100" viewBox="0 0 180 100">
+        {/* Track */}
+        <path d={`M ${startX} ${cy} A ${r} ${r} 0 0 1 ${endX} ${cy}`} fill="none" stroke="#e2e8f0" strokeWidth="16" strokeLinecap="round" />
+        {/* Zones */}
+        <path d={`M ${startX} ${cy} A ${r} ${r} 0 0 1 ${cx} ${cy - r}`} fill="none" stroke="#fde68a" strokeWidth="16" strokeLinecap="round" opacity="0.5" />
+        <path d={`M ${cx} ${cy - r} A ${r} ${r} 0 0 1 ${endX} ${cy}`} fill="none" stroke="#6ee7b7" strokeWidth="16" strokeLinecap="round" opacity="0.5" />
+        {/* Needle */}
+        <line
+          x1={cx} y1={cy}
+          x2={cx + (r - 8) * Math.cos((angle - 90) * Math.PI / 180)}
+          y2={cy + (r - 8) * Math.sin((angle - 90) * Math.PI / 180)}
+          stroke={npsColor} strokeWidth="3" strokeLinecap="round"
+          style={{ transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
+        />
+        <circle cx={cx} cy={cy} r="5" fill={npsColor} />
+        {/* Labels */}
+        <text x="18" y="95" fontSize="10" fill="#94a3b8" textAnchor="middle">-100</text>
+        <text x="90" y="20" fontSize="10" fill="#94a3b8" textAnchor="middle">0</text>
+        <text x="162" y="95" fontSize="10" fill="#94a3b8" textAnchor="middle">+100</text>
+      </svg>
+      <div className="text-center -mt-2">
+        <p className="text-4xl font-bold" style={{ color: npsColor }}>{score}</p>
+        <p className="text-xs text-slate-500 mt-1">Score NPS</p>
       </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total tickets" value={tickets.length} icon="Star" color="indigo" />
-        <StatCard title="Ouverts" value={totalOuverts} icon="AlertCircle" color="red" />
-        <StatCard title="Résolus" value={totalResolus} icon="CheckCircle" color="green" />
-        <div className="bg-amber-50 rounded-xl p-5 flex items-start gap-4">
-          <div className="bg-amber-100 text-amber-600 p-3 rounded-xl">
-            <Star size={22} />
-          </div>
-          <div>
-            <p className="text-sm text-gray-500 font-medium mb-1">Satisfaction</p>
-            <div className="flex items-center gap-1">
-              {[1,2,3,4,5].map(n => (
-                <Star key={n} size={16} className={n <= Math.round(avgSat) ? 'text-amber-400 fill-amber-400' : 'text-gray-300'} />
-              ))}
-            </div>
-            <p className="text-xs text-gray-400 mt-0.5">{avgSat.toFixed(1)}/5</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 p-4">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="Rechercher..." value={search} onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500" />
-          </div>
-          <Select options={TYPE_OPTIONS} value={filterType} onChange={e => setFilterType(e.target.value)} />
-          <Select options={STATUT_OPTIONS} value={filterStatut} onChange={e => setFilterStatut(e.target.value)} />
-        </div>
-      </div>
-
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        {filtered.length === 0 ? (
-          <EmptyState icon="Star" title="Aucun ticket qualité" description="Créez votre premier ticket pour suivre la qualité de service." />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Référence</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Titre</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Type</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden md:table-cell">Bénéficiaire</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600">Statut</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell">Priorité</th>
-                  <th className="text-left px-4 py-3 font-medium text-gray-600 hidden lg:table-cell">Date</th>
-                  <th className="text-right px-4 py-3 font-medium text-gray-600">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filtered.map(t => (
-                  <tr key={t.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-mono text-xs text-gray-600">{t.reference}</td>
-                    <td className="px-4 py-3 font-medium text-gray-800 max-w-xs truncate">{t.titre}</td>
-                    <td className="px-4 py-3"><Badge variant={getTypeVariant(t.type)} size="xs">{QUALITE_TYPE_LABELS[t.type]}</Badge></td>
-                    <td className="px-4 py-3 hidden md:table-cell text-gray-600">{t.beneficiaire}</td>
-                    <td className="px-4 py-3"><Badge variant={getStatusVariant(t.statut)} size="xs">{QUALITE_STATUT_LABELS[t.statut]}</Badge></td>
-                    <td className="px-4 py-3 hidden lg:table-cell"><Badge variant={getPrioriteVariant(t.priorite)} size="xs">{t.priorite}</Badge></td>
-                    <td className="px-4 py-3 hidden lg:table-cell text-gray-500">{formatDate(t.date)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
-                        <button onClick={() => setShowDetail(t.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"><Eye size={15} /></button>
-                        <button onClick={() => { setSelectedId(t.id); setShowConfirm(true); }} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50"><Trash2 size={15} /></button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      <Modal isOpen={!!detail} onClose={() => setShowDetail(null)} title={detail ? detail.titre : ''} size="md">
-        {detail && (
-          <div className="space-y-3 text-sm">
-            <div className="flex gap-2 flex-wrap">
-              <Badge variant={getTypeVariant(detail.type)}>{QUALITE_TYPE_LABELS[detail.type]}</Badge>
-              <Badge variant={getStatusVariant(detail.statut)}>{QUALITE_STATUT_LABELS[detail.statut]}</Badge>
-              <Badge variant={getPrioriteVariant(detail.priorite)}>Priorité {detail.priorite}</Badge>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><p className="text-xs text-gray-400 mb-0.5">Bénéficiaire</p><p className="font-medium">{detail.beneficiaire}</p></div>
-              <div><p className="text-xs text-gray-400 mb-0.5">Date</p><p>{formatDate(detail.date)}</p></div>
-            </div>
-            <div><p className="text-xs text-gray-400 mb-1">Description</p><p className="bg-gray-50 p-3 rounded-lg text-gray-700">{detail.description}</p></div>
-            {detail.satisfaction && (
-              <div>
-                <p className="text-xs text-gray-400 mb-1">Satisfaction</p>
-                <div className="flex">{[1,2,3,4,5].map(n => <Star key={n} size={18} className={n <= detail.satisfaction ? 'text-amber-400 fill-amber-400' : 'text-gray-300'} />)}</div>
-              </div>
-            )}
-          </div>
-        )}
-      </Modal>
-
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title="Nouveau ticket qualité" size="md"
-        footer={<><Button variant="ghost" onClick={() => setShowModal(false)}>Annuler</Button><Button loading={saving} onClick={handleSave}>Créer</Button></>}>
-        <div className="space-y-4">
-          <Input label="Titre" value={formData.titre} onChange={e => setFormData(p => ({...p, titre: e.target.value}))} required />
-          <div className="grid grid-cols-2 gap-4">
-            <Select label="Type" value={formData.type} onChange={e => setFormData(p => ({...p, type: e.target.value}))} options={TYPE_OPTIONS.slice(1)} />
-            <Select label="Priorité" value={formData.priorite} onChange={e => setFormData(p => ({...p, priorite: e.target.value}))} options={PRIORITE_OPTIONS} />
-          </div>
-          <Input label="Bénéficiaire concerné" value={formData.beneficiaire} onChange={e => setFormData(p => ({...p, beneficiaire: e.target.value}))} />
-          <TextArea label="Description" value={formData.description} onChange={e => setFormData(p => ({...p, description: e.target.value}))} rows={4} maxLength={500} />
-        </div>
-      </Modal>
-
-      <ConfirmDialog isOpen={showConfirm} onClose={() => setShowConfirm(false)} onConfirm={handleDelete} title="Supprimer le ticket" message="Ce ticket qualité sera définitivement supprimé." />
     </div>
   );
-}
+};
+
+/* ─── KPI Card ─────────────────────────────────────────────────────────── */
+const KpiCard = ({ icon: Icon, label, value, sub, color }) => {
+  const colorMap = {
+    teal:    'from-teal-500 to-teal-600 bg-teal-50',
+    emerald: 'from-emerald-500 to-emerald-600 bg-emerald-50',
+    amber:   'from-amber-500 to-amber-600 bg-amber-50',
+    rose:    'from-rose-500 to-rose-600 bg-rose-50',
+  };
+  const [grad, bg] = (colorMap[color] || colorMap.teal).split(' ');
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 flex items-center gap-4 animate-slideUp">
+      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${grad} flex items-center justify-center flex-shrink-0`}>
+        <Icon size={22} className="text-white" />
+      </div>
+      <div className="min-w-0">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{label}</p>
+        <p className="text-2xl font-bold text-slate-800 mt-0.5">{value}</p>
+        {sub && <p className="text-xs text-slate-400 mt-0.5">{sub}</p>}
+      </div>
+    </div>
+  );
+};
+
+/* ─── Custom tooltip ───────────────────────────────────────────────────── */
+const CustomTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-white border border-slate-100 shadow-lg rounded-xl p-3 text-xs">
+      <p className="font-semibold text-slate-700 mb-2">{label}</p>
+      {payload.map(p => (
+        <div key={p.name} className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full" style={{ backgroundColor: p.fill || p.stroke }} />
+          <span className="text-slate-500">{p.name} :</span>
+          <span className="font-semibold text-slate-700">{p.value}{p.name === 'NPS' ? '' : '%'}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/* ─── Main ─────────────────────────────────────────────────────────────── */
+const QualitePage = () => {
+  const [periode, setPeriode] = useState('6 derniers mois');
+
+  const currentNPS = NPS_EVOLUTION[NPS_EVOLUTION.length - 1].nps;
+  const prevNPS    = NPS_EVOLUTION[NPS_EVOLUTION.length - 2].nps;
+  const npsDelta   = currentNPS - prevNPS;
+
+  const incidentsOuverts = INCIDENTS.filter(i => i.statut === 'En cours').length;
+
+  return (
+    <div className="p-6 space-y-6 animate-fadeIn">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Qualité de service</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Indicateurs de satisfaction et suivi des incidents</p>
+        </div>
+        <div className="relative">
+          <select
+            value={periode}
+            onChange={e => setPeriode(e.target.value)}
+            className="appearance-none pl-4 pr-9 py-2.5 text-sm bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-400 cursor-pointer"
+          >
+            {PERIODES.map(p => <option key={p}>{p}</option>)}
+          </select>
+          <ChevronDown size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        </div>
+      </div>
+
+      {/* KPI cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard icon={ThumbsUp}      label="Taux de satisfaction" value="91%"   sub="+4pts vs mois dernier" color="teal" />
+        <KpiCard icon={Clock}         label="Temps de réponse moy" value="2h14"  sub="Réclamations clients"   color="amber" />
+        <KpiCard icon={Shield}        label="Taux de conformité"   value="98.2%" sub="Procédures internes"    color="emerald" />
+        <KpiCard icon={AlertTriangle} label="Incidents ouverts"    value={incidentsOuverts} sub={`${INCIDENTS.length} au total`} color="rose" />
+      </div>
+
+      {/* NPS + Évolution */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        {/* NPS Score */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-100 shadow-sm p-6 flex flex-col items-center justify-center">
+          <div className="flex items-center gap-2 mb-4 self-start">
+            <Star size={16} className="text-amber-400" />
+            <h2 className="text-sm font-semibold text-slate-700">Net Promoter Score</h2>
+          </div>
+          <NPSGauge score={currentNPS} />
+          <div className="flex items-center gap-2 mt-4">
+            {npsDelta >= 0 ? (
+              <TrendingUp size={16} className="text-emerald-500" />
+            ) : (
+              <TrendingDown size={16} className="text-rose-500" />
+            )}
+            <span className={`text-sm font-semibold ${npsDelta >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+              {npsDelta >= 0 ? '+' : ''}{npsDelta} pts vs mois dernier
+            </span>
+          </div>
+          <div className="mt-4 w-full grid grid-cols-3 gap-2 text-center">
+            {[
+              { label: 'Promoteurs', value: '68%', color: 'text-emerald-600' },
+              { label: 'Passifs',    value: '18%', color: 'text-amber-600' },
+              { label: 'Détracteurs', value: '14%', color: 'text-rose-600' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="bg-slate-50 rounded-xl p-2">
+                <p className={`text-sm font-bold ${color}`}>{value}</p>
+                <p className="text-xs text-slate-400">{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* NPS évolution */}
+        <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart2 size={16} className="text-teal-500" />
+            <h2 className="text-sm font-semibold text-slate-700">Évolution NPS</h2>
+          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={NPS_EVOLUTION} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="mois" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+              <Tooltip content={<CustomTooltip />} />
+              <Line type="monotone" dataKey="nps" name="NPS" stroke="#0d9488" strokeWidth={2.5} dot={{ fill: '#0d9488', r: 4 }} activeDot={{ r: 6, fill: '#0d9488' }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Satisfaction breakdown */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 animate-slideUp">
+        <div className="flex items-center gap-2 mb-5">
+          <Star size={16} className="text-amber-400" />
+          <h2 className="text-sm font-semibold text-slate-700">Répartition satisfaction mensuelle</h2>
+        </div>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={SATISFACTION_DATA} margin={{ top: 5, right: 10, left: -20, bottom: 0 }} barSize={18} barGap={4}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+            <XAxis dataKey="mois" tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+            <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} unit="%" />
+            <Tooltip content={<CustomTooltip />} />
+            <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
+            <Bar dataKey="satisfaits"    name="Satisfaits"    fill="#10b981" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="neutres"       name="Neutres"       fill="#f59e0b" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="insatisfaits"  name="Insatisfaits"  fill="#f43f5e" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Incidents timeline */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 animate-slideUp">
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-2">
+            <AlertTriangle size={16} className="text-amber-500" />
+            <h2 className="text-sm font-semibold text-slate-700">Incidents récents</h2>
+          </div>
+          <Badge variant="warning" dot size="sm">{incidentsOuverts} ouvert{incidentsOuverts > 1 ? 's' : ''}</Badge>
+        </div>
+
+        <div className="relative">
+          {/* Vertical line */}
+          <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-100" />
+
+          <div className="space-y-5 pl-10">
+            {INCIDENTS.map((incident, idx) => {
+              const graviteCfg = GRAVITE_CONFIG[incident.gravite] || GRAVITE_CONFIG['Faible'];
+              const statutCfg  = STATUT_CONFIG[incident.statut] || STATUT_CONFIG['Résolu'];
+              const StatutIcon = statutCfg.icon;
+              return (
+                <div key={incident.id} className="relative animate-fadeIn" style={{ animationDelay: `${idx * 60}ms` }}>
+                  {/* Dot */}
+                  <div className={`absolute -left-6 top-0 w-3 h-3 rounded-full border-2 border-white ${incident.statut === 'En cours' ? 'bg-amber-400' : 'bg-emerald-400'} shadow-sm`} />
+
+                  <div className={`rounded-xl border p-4 ${incident.statut === 'En cours' ? 'border-amber-100 bg-amber-50/50' : 'border-slate-100 bg-slate-50/50'}`}>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-slate-700">{incident.type}</span>
+                        <Badge variant={graviteCfg.variant} size="xs">{incident.gravite}</Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={statutCfg.variant} dot size="xs">{incident.statut}</Badge>
+                        <span className="text-xs text-slate-400">{incident.date}</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-1">
+                      <span className="font-medium text-slate-600">Bénéficiaire :</span> {incident.beneficiaire}
+                    </p>
+                    <p className="text-xs text-slate-600">{incident.description}</p>
+                    {incident.resolution && (
+                      <div className="mt-2 flex items-start gap-1.5">
+                        <CheckCircle size={12} className="text-emerald-500 flex-shrink-0 mt-0.5" />
+                        <p className="text-xs text-emerald-700">{incident.resolution}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default QualitePage;
