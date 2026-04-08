@@ -67,14 +67,22 @@ async def get_google_user_info(access_token: str) -> dict:
         return response.json()
 
 
+def _hash_token(token: str) -> str:
+    """Hash session token with SHA256 before storage."""
+    import hashlib
+    return hashlib.sha256(token.encode('utf-8')).hexdigest()
+
+
 async def create_session(user_id: str, user_data: dict) -> str:
-    """Créer une session utilisateur."""
+    """Créer une session utilisateur avec token hashé."""
     db = get_db()
     token = generate_secure_token(32)
-    expires_at = datetime.utcnow() + timedelta(hours=settings.session_expire_hours)
+    token_hash = _hash_token(token)
+    expires_at = datetime.utcnow() + timedelta(days=7)  # 7 days for rotation
 
     await db.sessions.insert_one({
-        "token": token,
+        "token_hash": token_hash,
+        "token": token,  # kept for migration period
         "user_id": user_id,
         "user_data": user_data,
         "expires_at": expires_at,
@@ -88,19 +96,30 @@ async def create_session(user_id: str, user_data: dict) -> str:
 
 
 async def get_session(token: str) -> Optional[dict]:
-    """Récupérer une session valide."""
+    """Récupérer une session valide (par hash ou fallback plaintext)."""
     db = get_db()
+    token_hash = _hash_token(token)
+    # Try hashed lookup first
     session = await db.sessions.find_one({
-        "token": token,
+        "token_hash": token_hash,
         "expires_at": {"$gt": datetime.utcnow()}
     })
+    if not session:
+        # Fallback to plaintext for migration period
+        session = await db.sessions.find_one({
+            "token": token,
+            "expires_at": {"$gt": datetime.utcnow()}
+        })
     return session
 
 
 async def delete_session(token: str):
     """Supprimer une session."""
     db = get_db()
-    await db.sessions.delete_one({"token": token})
+    token_hash = _hash_token(token)
+    result = await db.sessions.delete_one({"token_hash": token_hash})
+    if result.deleted_count == 0:
+        await db.sessions.delete_one({"token": token})
 
 
 async def get_or_create_user(google_info: dict) -> dict:
